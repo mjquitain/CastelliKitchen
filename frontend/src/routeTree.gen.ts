@@ -10,43 +10,117 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as DemoTanstackQueryRouteImport } from './routes/demo/tanstack-query'
+import { Route as authLoginRouteImport } from './routes/(auth)/login'
+import { Route as protectedRecipeIndexRouteImport } from './routes/(protected)/recipe/index'
+import { Route as protectedProfileIndexRouteImport } from './routes/(protected)/profile/index'
+import { Route as protectedNotificationIndexRouteImport } from './routes/(protected)/notification/index'
+import { Route as protectedIngredientsIndexRouteImport } from './routes/(protected)/ingredients/index'
+import { Route as protectedHomeIndexRouteImport } from './routes/(protected)/home/index'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const DemoTanstackQueryRoute = DemoTanstackQueryRouteImport.update({
-  id: '/demo/tanstack-query',
-  path: '/demo/tanstack-query',
+const authLoginRoute = authLoginRouteImport.update({
+  id: '/(auth)/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const protectedRecipeIndexRoute = protectedRecipeIndexRouteImport.update({
+  id: '/(protected)/recipe/',
+  path: '/recipe/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const protectedProfileIndexRoute = protectedProfileIndexRouteImport.update({
+  id: '/(protected)/profile/',
+  path: '/profile/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const protectedNotificationIndexRoute =
+  protectedNotificationIndexRouteImport.update({
+    id: '/(protected)/notification/',
+    path: '/notification/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const protectedIngredientsIndexRoute =
+  protectedIngredientsIndexRouteImport.update({
+    id: '/(protected)/ingredients/',
+    path: '/ingredients/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const protectedHomeIndexRoute = protectedHomeIndexRouteImport.update({
+  id: '/(protected)/home/',
+  path: '/home/',
   getParentRoute: () => rootRouteImport,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/demo/tanstack-query': typeof DemoTanstackQueryRoute
+  '/login': typeof authLoginRoute
+  '/home': typeof protectedHomeIndexRoute
+  '/ingredients': typeof protectedIngredientsIndexRoute
+  '/notification': typeof protectedNotificationIndexRoute
+  '/profile': typeof protectedProfileIndexRoute
+  '/recipe': typeof protectedRecipeIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/demo/tanstack-query': typeof DemoTanstackQueryRoute
+  '/login': typeof authLoginRoute
+  '/home': typeof protectedHomeIndexRoute
+  '/ingredients': typeof protectedIngredientsIndexRoute
+  '/notification': typeof protectedNotificationIndexRoute
+  '/profile': typeof protectedProfileIndexRoute
+  '/recipe': typeof protectedRecipeIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/demo/tanstack-query': typeof DemoTanstackQueryRoute
+  '/(auth)/login': typeof authLoginRoute
+  '/(protected)/home/': typeof protectedHomeIndexRoute
+  '/(protected)/ingredients/': typeof protectedIngredientsIndexRoute
+  '/(protected)/notification/': typeof protectedNotificationIndexRoute
+  '/(protected)/profile/': typeof protectedProfileIndexRoute
+  '/(protected)/recipe/': typeof protectedRecipeIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/demo/tanstack-query'
+  fullPaths:
+    | '/'
+    | '/login'
+    | '/home'
+    | '/ingredients'
+    | '/notification'
+    | '/profile'
+    | '/recipe'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/demo/tanstack-query'
-  id: '__root__' | '/' | '/demo/tanstack-query'
+  to:
+    | '/'
+    | '/login'
+    | '/home'
+    | '/ingredients'
+    | '/notification'
+    | '/profile'
+    | '/recipe'
+  id:
+    | '__root__'
+    | '/'
+    | '/(auth)/login'
+    | '/(protected)/home/'
+    | '/(protected)/ingredients/'
+    | '/(protected)/notification/'
+    | '/(protected)/profile/'
+    | '/(protected)/recipe/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  DemoTanstackQueryRoute: typeof DemoTanstackQueryRoute
+  authLoginRoute: typeof authLoginRoute
+  protectedHomeIndexRoute: typeof protectedHomeIndexRoute
+  protectedIngredientsIndexRoute: typeof protectedIngredientsIndexRoute
+  protectedNotificationIndexRoute: typeof protectedNotificationIndexRoute
+  protectedProfileIndexRoute: typeof protectedProfileIndexRoute
+  protectedRecipeIndexRoute: typeof protectedRecipeIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -58,11 +132,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/demo/tanstack-query': {
-      id: '/demo/tanstack-query'
-      path: '/demo/tanstack-query'
-      fullPath: '/demo/tanstack-query'
-      preLoaderRoute: typeof DemoTanstackQueryRouteImport
+    '/(auth)/login': {
+      id: '/(auth)/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof authLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/(protected)/recipe/': {
+      id: '/(protected)/recipe/'
+      path: '/recipe'
+      fullPath: '/recipe'
+      preLoaderRoute: typeof protectedRecipeIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/(protected)/profile/': {
+      id: '/(protected)/profile/'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof protectedProfileIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/(protected)/notification/': {
+      id: '/(protected)/notification/'
+      path: '/notification'
+      fullPath: '/notification'
+      preLoaderRoute: typeof protectedNotificationIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/(protected)/ingredients/': {
+      id: '/(protected)/ingredients/'
+      path: '/ingredients'
+      fullPath: '/ingredients'
+      preLoaderRoute: typeof protectedIngredientsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/(protected)/home/': {
+      id: '/(protected)/home/'
+      path: '/home'
+      fullPath: '/home'
+      preLoaderRoute: typeof protectedHomeIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -70,7 +179,12 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  DemoTanstackQueryRoute: DemoTanstackQueryRoute,
+  authLoginRoute: authLoginRoute,
+  protectedHomeIndexRoute: protectedHomeIndexRoute,
+  protectedIngredientsIndexRoute: protectedIngredientsIndexRoute,
+  protectedNotificationIndexRoute: protectedNotificationIndexRoute,
+  protectedProfileIndexRoute: protectedProfileIndexRoute,
+  protectedRecipeIndexRoute: protectedRecipeIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
