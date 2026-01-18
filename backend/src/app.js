@@ -1,15 +1,12 @@
-import cors from "cors";
 import express from "express";
-
-import userRoutes from "./routes/user.routes.js";
 
 const app = express();
 
-// Middlewares
 app.use(express.json());
-app.use(cors());
+
+import userRouter from "./routes/user.routes.js";
 
 // Routes
-app.use("/api/v1/users", userRoutes);
+app.use("/api/v1/users", userRouter);
 
 export default app;
