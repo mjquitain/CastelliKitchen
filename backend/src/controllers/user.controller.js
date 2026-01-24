@@ -1,3 +1,4 @@
+import jwt from "jsonwebtoken";
 import { User } from "../models/user.model.js";
 
 const registerUser = async (req, res) => {
@@ -43,18 +44,19 @@ const loginUser = async (req, res) => {
 
         if (!user) return res.status(404).json({ message: "User not found" });
 
-        // Validate password
-        if (user.password !== password) {
-            return res.status(401).json({ message: "Invalid credentials" });
-        }
-
         // Compare passwords
         const isMatch = await user.comparePassword(password);
         if (!isMatch) {
             return res.status(401).json({ message: "Invalid credentials" });
         }
 
-        res.status(200).json({ message: "Login successful", user: { userID: user._id, username: user.username } });
+        const token = jwt.sign(
+            { id: user._id },
+            process.env.JWT_SECRET,
+            { expiresIn: "7d" }
+        );
+
+        res.status(200).json({ message: "Login successful", token, user: { userID: user._id, username: user.username } });
 
     } catch (error) {
         res.status(500).json({ message: "Server Error", error: error.message });
