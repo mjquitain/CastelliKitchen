@@ -6,6 +6,7 @@ app.use(express.json());
 
 import savedRecipeRouter from "./routes/savedrecipe.routes.js";
 import userRouter from "./routes/user.routes.js";
+import recipeRouter from "./routes/recipe.routes.js";
 
 // Routes
 app.use("/api/v1/users", userRouter);
