@@ -8,6 +8,7 @@ router.route('/').post(addIngredient);
 router.route('/').get(getIngredients);
 router.route('/category/:category').get(getIngredientsByCategory);
 router.route('/:ingredientId/batches').get(getBatchesPerIngredient);
+router.route('/:ingredientId/batches/:batchId').get(getIngredientBatch);
 
 router.route('/:ingredientId').put(updateIngredient);
 router.route('/:ingredientId/batches/:batchId').put(updateIngredientBatch);
