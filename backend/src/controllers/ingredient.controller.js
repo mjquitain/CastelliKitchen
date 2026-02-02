@@ -5,21 +5,25 @@ const addIngredient = async (req, res) => {
     try {
         const { name, quantity, category, dateAdded, expiryDate } = req.body;
 
+        // console.log("USER:", req.user);
+        // console.log("BODY:", req.body);
+
+
         let ingredient = await Ingredient.findOne({ 
-            userId: req.user._id, 
+            userId: req.user.id, 
             name 
         });
 
         if(!ingredient) {
             ingredient = await Ingredient.create({ 
-                userId: req.user._id, 
+                userId: req.user.id, 
                 name, 
                 category 
             });
         }
 
         const existingIngredientBatch = await IngredientBatch.findOne({
-            userId: req.user._id,
+            userId: req.user.id,
             ingredientId: ingredient._id,
             expiryDate
         });
@@ -29,7 +33,7 @@ const addIngredient = async (req, res) => {
         }
 
         const ingredientBatch = await IngredientBatch.create({
-            userId: req.user._id,
+            userId: req.user.id,
             ingredientId: ingredient._id,
             quantity,
             dateAdded,
@@ -46,7 +50,7 @@ const addIngredient = async (req, res) => {
 // retrieve
 const getIngredients = async (req, res) => {
     try {
-        const ingredients = await Ingredient.find({ userId: req.user._id }).populate({ path: "batches", match: { isUsed: false } });
+        const ingredients = await Ingredient.find({ userId: req.user.id }).populate({ path: "batches", match: { isUsed: false } });
         res.status(200).json(ingredients);
     } catch (error) {
         res.status(500).json({ message: "Error retrieving ingredients.", error })
@@ -56,7 +60,7 @@ const getIngredients = async (req, res) => {
 const getIngredientsByCategory = async (req, res) => {
     try {
         const ingredients = await Ingredient.find({ 
-            userId: req.user._id, 
+            userId: req.user.id, 
             category: req.params.category
          });
          res.status(200).json(ingredients);
@@ -68,7 +72,7 @@ const getIngredientsByCategory = async (req, res) => {
 const getBatchesPerIngredient = async (req, res) => {
     try {
         const ingredients = await IngredientBatch.find({ 
-            userId: req.user._id,
+            userId: req.user.id,
             ingredientId: req.params.ingredientId,
             isUsed: false })
             .sort({ expiryDate: 1 });
@@ -82,7 +86,7 @@ const getIngredientBatch = async (req, res) => {
     try {
         const ingredientBatch = await IngredientBatch.findOne({ 
             _id: req.params.batchId,
-            userId: req.user._id
+            userId: req.user.id
          }).populate("ingredientId");
 
          if (!ingredientBatch) {
@@ -104,7 +108,7 @@ const updateIngredient = async (req, res) => {
         if (category) updateData.category = category;
 
         const ingredient = await Ingredient.findOneAndUpdate(
-            { userId: req.user._id, _id: req.params.ingredientId},
+            { userId: req.user.id, _id: req.params.ingredientId},
             updateData,
             { new: true, runValidators: true}
         );
@@ -133,7 +137,7 @@ const updateIngredientBatch = async (req, res) => {
         if (typeof isUsed === "boolean") updateData.isUsed = isUsed;
 
         const ingredientBatch = await IngredientBatch.findOneAndUpdate( 
-            { userId: req.user._id, _id: req.params.batchId },
+            { userId: req.user.id, _id: req.params.batchId },
             updateData, 
             { new: true, runValidators: true }
         );
@@ -152,11 +156,11 @@ const updateIngredientBatch = async (req, res) => {
 const deleteIngredient = async (req, res) => {
     try {
         const ingredientBatches = await IngredientBatch.deleteMany({ 
-            userId: req.user._id, 
+            userId: req.user.id, 
             ingredientId: req.params.ingredientId 
         });
         const ingredient = await Ingredient.findOneAndDelete({ 
-            userId: req.user._id,
+            userId: req.user.id,
             _id: req.params.ingredientId
         });
 
@@ -172,7 +176,7 @@ const deleteIngredient = async (req, res) => {
 const deleteIngredientBatch = async (req, res) => {
     try { 
         const ingredientBatch = await IngredientBatch.findOneAndDelete({ 
-            userId: req.user._id, 
+            userId: req.user.id, 
             _id: req.params.batchId 
         });
 
