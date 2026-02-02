@@ -12,6 +12,7 @@ import ingredientRouter from "./routes/ingredient.routes.js";
 // Routes
 app.use("/api/v1/users", userRouter);
 app.use("/api/v1/savedrecipes", savedRecipeRouter);
+app.use("/api/v1/recipes", recipeRouter)
 app.use("/api/v1/ingredients", ingredientRouter);
 
 export default app;
