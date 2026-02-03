@@ -1,83 +1,158 @@
+import { notificationApi, type Notification } from "@/api/notifications";
 import {
     ActionIcon,
-    Alert,
     Badge,
     Box,
     Button,
     Card,
-    Divider,
     Group,
+    Loader,
     Paper,
     rem,
     Stack,
     Text,
-    Title,
+    Title
 } from "@mantine/core";
-import { AlertTriangle, Bell, Calendar, Check, Package, Trash2, X } from "lucide-react";
-import { useState } from "react";
-import { ingredients } from "../../data/mock_ingredients_data";
-
-interface Ingredient {
-    id: number;
-    quantity: string;
-    name: string;
-    category: string;
-    dateAdded: string;
-    expiryDate: string;
-}
-
-const getDaysUntilExpiry = (expiryDate: string): number => {
-    const expiry = new Date(expiryDate);
-    const today = new Date();
-    const diffTime = expiry.getTime() - today.getTime();
-    return Math.floor(diffTime / (1000 * 60 * 60 * 24));
-};
+import { AlertTriangle, Bell, BookHeart, Calendar, Check, Heart, Package, Plus, Save, Trash2, X } from "lucide-react";
+import { useEffect, useState } from "react";
 
 function NotificationPage() {
-    const [dismissedNotifications, setDismissedNotifications] = useState<number[]>([]);
+    const [notifications, setNotifications] = useState<Notification[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
 
-    const expiredIngredients = ingredients.filter((item: Ingredient) => {
-        const days = getDaysUntilExpiry(item.expiryDate);
-        return days < 0 && !dismissedNotifications.includes(item.id);
-    });
-
-    const expiringSoonIngredients = ingredients.filter((item: Ingredient) => {
-        const days = getDaysUntilExpiry(item.expiryDate);
-        return days >= 0 && days <= 3 && !dismissedNotifications.includes(item.id);
-    });
-
-    const expiringThisWeekIngredients = ingredients.filter((item: Ingredient) => {
-        const days = getDaysUntilExpiry(item.expiryDate);
-        return days > 3 && days <= 7 && !dismissedNotifications.includes(item.id);
-    });
-
-    const dismissNotification = (id: number) => {
-        setDismissedNotifications([...dismissedNotifications, id]);
+    const fetchNotifications = async () => {
+        try {
+            setIsLoading(true);
+            const response = await notificationApi.getAll();
+            setNotifications(response.data);
+        } catch (error) {
+            console.error("Error fetching notifications:", error);
+        } finally {
+            setIsLoading(false);
+        }
     };
 
-    const clearAllNotifications = () => {
-        const allIds = [
-            ...expiredIngredients,
-            ...expiringSoonIngredients,
-            ...expiringThisWeekIngredients
-        ].map(item => item.id);
-        setDismissedNotifications(allIds);
+    useEffect(() => {
+        fetchNotifications();
+    }, []);
+
+    const dismissNotification = async (id: string) => {
+        try {
+            await notificationApi.delete(id);
+            setNotifications(notifications.filter(n => n._id !== id));
+        } catch (error) {
+            console.error("Error deleting notification:", error);
+        }
     };
 
-    const totalNotifications = expiredIngredients.length + expiringSoonIngredients.length + expiringThisWeekIngredients.length;
+    const clearAllNotifications = async () => {
+        try {
+            await notificationApi.clearAll();
+            setNotifications([]);
+        } catch (error) {
+            console.error("Error clearing notifications:", error);
+        }
+    };
 
-    const IngredientNotificationCard = ({ item, status }: { item: Ingredient; status: 'expired' | 'expiring-soon' | 'expiring-week' }) => {
-        const days = getDaysUntilExpiry(item.expiryDate);
-        const isExpired = days < 0;
+    const markAsRead = async (id: string) => {
+        try {
+            await notificationApi.markAsRead(id);
+            setNotifications(notifications.map(n =>
+                n._id === id ? { ...n, isRead: true } : n
+            ));
+        } catch (error) {
+            console.error("Error marking as read:", error);
+        }
+    };
 
-        const statusConfig = {
-            'expired': { color: '#d32f2f', bgColor: '#ffebee', label: `Expired ${Math.abs(days)} day${Math.abs(days) !== 1 ? 's' : ''} ago`, icon: AlertTriangle },
-            'expiring-soon': { color: '#f57c00', bgColor: '#fff3e0', label: days === 0 ? 'Expires today!' : `Expires in ${days} day${days !== 1 ? 's' : ''}`, icon: AlertTriangle },
-            'expiring-week': { color: '#fbc02d', bgColor: '#fffde7', label: `Expires in ${days} days`, icon: Calendar }
+    const markAllAsRead = async () => {
+        try {
+            await notificationApi.markAllAsRead();
+            setNotifications(notifications.map(n => ({ ...n, isRead: true })));
+        } catch (error) {
+            console.error("Error marking all as read:", error);
+        }
+    };
+
+    const expiredNotifications = notifications.filter(n => n.type === 'ingredient_expired');
+    const expiringNotifications = notifications.filter(n => n.type === 'ingredient_expiring');
+    const ingredientNotifications = notifications.filter(n =>
+        ['ingredient_added', 'ingredient_deleted', 'ingredient_used', 'ingredient_edited'].includes(n.type)
+    );
+    const recipeNotifications = notifications.filter(n =>
+        ['recipe_added', 'recipe_saved', 'recipe_favorited', 'recipe_unfavorited'].includes(n.type)
+    ); const unreadCount = notifications.filter(n => !n.isRead).length;
+    const totalNotifications = notifications.length;
+
+    const getNotificationIcon = (type: string) => {
+        const iconMap: { [key: string]: any } = {
+            ingredient_expired: AlertTriangle,
+            ingredient_expiring: Calendar,
+            ingredient_added: Plus,
+            ingredient_deleted: Trash2,
+            ingredient_used: Check,
+            ingredient_edited: Package,
+            recipe_added: Plus,
+            recipe_saved: Save,
+            recipe_favorited: Heart,
+            recipe_unfavorited: Save
         };
+        return iconMap[type] || Bell;
+    };
 
-        const config = statusConfig[status];
-        const Icon = config.icon;
+    const getNotificationColor = (type: string) => {
+        const colorMap: { [key: string]: string } = {
+            ingredient_expired: '#d32f2f',
+            ingredient_expiring: '#f57c00',
+            ingredient_added: '#8a9a7b',
+            ingredient_deleted: '#757575',
+            ingredient_used: '#388e3c',
+            ingredient_edited: '#8a9a7b',
+            recipe_added: '#8a9a7b',
+            recipe_saved: '#8a9a7b',
+            recipe_favorited: '#e54854',
+            recipe_unfavorited: '#8a9a7b'
+        };
+        return colorMap[type] || '#8a9a7b';
+    };
+
+    const getNotificationBgColor = (type: string) => {
+        const bgColorMap: { [key: string]: string } = {
+            ingredient_expired: '#ffebee',
+            ingredient_expiring: '#fff3e0',
+            ingredient_added: '#e8f0e8',
+            ingredient_deleted: '#f5f5f5',
+            ingredient_used: '#e8f5e9',
+            ingredient_edited: '#e8f0e8',
+            recipe_added: '#e8f0e8',
+            recipe_saved: '#e8f0e8',
+            recipe_favorited: '#ffebee',
+            recipe_unfavorited: '#e8f0e8'
+        };
+        return bgColorMap[type] || '#f8f9f8';
+    };
+
+    const formatTimeAgo = (date: string) => {
+        const now = new Date();
+        const notificationDate = new Date(date);
+        const diffInSeconds = Math.floor((now.getTime() - notificationDate.getTime()) / 1000);
+
+        if (diffInSeconds < 60) return 'Just now';
+        if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} min ago`;
+        if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} hours ago`;
+        if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)} days ago`;
+
+        return notificationDate.toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: notificationDate.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
+        });
+    };
+
+    const NotificationCard = ({ notification }: { notification: Notification }) => {
+        const Icon = getNotificationIcon(notification.type);
+        const color = getNotificationColor(notification.type);
+        const bgColor = getNotificationBgColor(notification.type);
 
         return (
             <Card
@@ -86,9 +161,10 @@ function NotificationPage() {
                 radius="md"
                 withBorder
                 style={{
-                    borderColor: config.color,
+                    borderColor: notification.isRead ? '#e0e0e0' : color,
                     borderWidth: '2px',
-                    backgroundColor: config.bgColor,
+                    backgroundColor: notification.isRead ? 'white' : bgColor,
+                    opacity: notification.isRead ? 0.7 : 1
                 }}
             >
                 <Group justify="space-between" wrap="nowrap">
@@ -100,51 +176,34 @@ function NotificationPage() {
                                 backgroundColor: 'white',
                             }}
                         >
-                            <Icon size={24} color={config.color} />
+                            <Icon size={24} color={color} />
                         </Box>
                         <div style={{ flex: 1 }}>
-                            <Group gap="xs" mb={4}>
-                                <Text fw={600} size="md" style={{ color: '#2d3319' }}>
-                                    {item.name}
-                                </Text>
-                                <Badge size="sm" variant="light" color="gray">
-                                    {item.category}
-                                </Badge>
-                            </Group>
-                            <Group gap="md">
-                                <Text size="sm" c="dimmed">
-                                    <Package size={14} style={{ display: 'inline', marginRight: 4, verticalAlign: 'middle' }} />
-                                    {item.quantity}
-                                </Text>
-                                <Text size="sm" style={{ color: config.color, fontWeight: 500 }}>
-                                    {config.label}
-                                </Text>
-                            </Group>
+                            <Text fw={notification.isRead ? 400 : 600} size="md" style={{ color: '#2d3319' }}>
+                                {notification.message}
+                            </Text>
                             <Text size="xs" c="dimmed" mt={4}>
-                                Expiry: {new Date(item.expiryDate).toLocaleDateString('en-US', {
-                                    month: 'short',
-                                    day: 'numeric',
-                                    year: 'numeric'
-                                })}
+                                {formatTimeAgo(notification.createdAt)}
                             </Text>
                         </div>
                     </Group>
                     <Group gap="xs">
-                        {isExpired && (
+                        {!notification.isRead && (
                             <ActionIcon
                                 variant="light"
-                                color="red"
+                                color="green"
                                 size="lg"
-                                title="Remove from pantry"
+                                onClick={() => markAsRead(notification._id)}
+                                title="Mark as read"
                             >
-                                <Trash2 size={18} />
+                                <Check size={18} />
                             </ActionIcon>
                         )}
                         <ActionIcon
                             variant="light"
                             color="gray"
                             size="lg"
-                            onClick={() => dismissNotification(item.id)}
+                            onClick={() => dismissNotification(notification._id)}
                             title="Dismiss notification"
                         >
                             <X size={18} />
@@ -154,6 +213,14 @@ function NotificationPage() {
             </Card>
         );
     };
+
+    if (isLoading) {
+        return (
+            <Stack align="center" justify="center" mih="100vh" w="100%">
+                <Loader size="lg" color="#8a9a7b" />
+            </Stack>
+        );
+    }
 
     return (
         <Stack
@@ -175,21 +242,38 @@ function NotificationPage() {
                             <Title order={2} style={{ color: '#2d3319' }}>
                                 Notifications
                             </Title>
+                            {unreadCount > 0 && (
+                                <Badge size="lg" color="red" variant="filled" circle>
+                                    {unreadCount}
+                                </Badge>
+                            )}
                         </Group>
                         <Text size="sm" c="dimmed" style={{ color: '#5a6b4f' }}>
-                            Track your ingredients and prevent food waste
+                            Track your ingredients, recipes, and prevent food waste
                         </Text>
                     </div>
-                    {totalNotifications > 0 && (
-                        <Button
-                            variant="light"
-                            color="gray"
-                            leftSection={<Check size={16} />}
-                            onClick={clearAllNotifications}
-                        >
-                            Clear All
-                        </Button>
-                    )}
+                    <Group gap="sm">
+                        {unreadCount > 0 && (
+                            <Button
+                                variant="light"
+                                color="green"
+                                leftSection={<Check size={16} />}
+                                onClick={markAllAsRead}
+                            >
+                                Mark All Read
+                            </Button>
+                        )}
+                        {totalNotifications > 0 && (
+                            <Button
+                                variant="light"
+                                color="gray"
+                                leftSection={<X size={16} />}
+                                onClick={clearAllNotifications}
+                            >
+                                Clear All
+                            </Button>
+                        )}
+                    </Group>
                 </Group>
 
                 {totalNotifications === 0 ? (
@@ -218,143 +302,89 @@ function NotificationPage() {
                                     All Clear! 🎉
                                 </Text>
                                 <Text size="sm" c="dimmed" mt="xs">
-                                    You have no expiring or expired ingredients at the moment
+                                    You have no notifications at the moment
                                 </Text>
                             </div>
                         </Stack>
                     </Paper>
                 ) : (
-                    <Alert
-                        icon={<AlertTriangle size={20} />}
-                        title="Ingredient Status Overview"
-                        color="orange"
-                        styles={{
-                            root: {
-                                backgroundColor: '#fff3e0',
-                                borderColor: '#f57c00',
-                            },
-                        }}
-                    >
-                        <Group gap="lg">
-                            {expiredIngredients.length > 0 && (
-                                <Text size="sm">
-                                    <Badge color="red" variant="filled" mr={6}>
-                                        {expiredIngredients.length}
+                    <Stack gap="lg">
+                        {expiredNotifications.length > 0 && (
+                            <div>
+                                <Group gap="sm" mb="sm">
+                                    <AlertTriangle size={20} color="#d32f2f" />
+                                    <Text fw={600} size="lg" style={{ color: '#2d3319' }}>
+                                        Expired Ingredients
+                                    </Text>
+                                    <Badge size="lg" color="red" variant="filled">
+                                        {expiredNotifications.length}
                                     </Badge>
-                                    Expired
-                                </Text>
-                            )}
-                            {expiringSoonIngredients.length > 0 && (
-                                <Text size="sm">
-                                    <Badge color="orange" variant="filled" mr={6}>
-                                        {expiringSoonIngredients.length}
+                                </Group>
+                                <Stack gap="sm">
+                                    {expiredNotifications.map(notification => (
+                                        <NotificationCard key={notification._id} notification={notification} />
+                                    ))}
+                                </Stack>
+                            </div>
+                        )}
+
+                        {expiringNotifications.length > 0 && (
+                            <div>
+                                <Group gap="sm" mb="sm">
+                                    <Calendar size={20} color="#f57c00" />
+                                    <Text fw={600} size="lg" style={{ color: '#2d3319' }}>
+                                        Expiring Soon
+                                    </Text>
+                                    <Badge size="lg" color="orange" variant="filled">
+                                        {expiringNotifications.length}
                                     </Badge>
-                                    Expiring in 3 days or less
-                                </Text>
-                            )}
-                            {expiringThisWeekIngredients.length > 0 && (
-                                <Text size="sm">
-                                    <Badge color="yellow" variant="filled" mr={6}>
-                                        {expiringThisWeekIngredients.length}
+                                </Group>
+                                <Stack gap="sm">
+                                    {expiringNotifications.map(notification => (
+                                        <NotificationCard key={notification._id} notification={notification} />
+                                    ))}
+                                </Stack>
+                            </div>
+                        )}
+
+                        {ingredientNotifications.length > 0 && (
+                            <div>
+                                <Group gap="sm" mb="sm">
+                                    <Package size={20} color="#8a9a7b" />
+                                    <Text fw={600} size="lg" style={{ color: '#2d3319' }}>
+                                        Ingredient Updates
+                                    </Text>
+                                    <Badge size="lg" color="green" variant="filled">
+                                        {ingredientNotifications.length}
                                     </Badge>
-                                    Expiring this week
-                                </Text>
-                            )}
-                        </Group>
-                    </Alert>
-                )}
+                                </Group>
+                                <Stack gap="sm">
+                                    {ingredientNotifications.map(notification => (
+                                        <NotificationCard key={notification._id} notification={notification} />
+                                    ))}
+                                </Stack>
+                            </div>
+                        )}
 
-                {expiredIngredients.length > 0 && (
-                    <Paper
-                        shadow="sm"
-                        p="lg"
-                        radius="md"
-                        style={{
-                            backgroundColor: 'white',
-                            border: '2px solid #e8f0e8',
-                        }}
-                    >
-                        <Group mb="md">
-                            <Badge color="red" variant="filled" size="lg">
-                                {expiredIngredients.length}
-                            </Badge>
-                            <Title order={4} style={{ color: '#d32f2f' }}>
-                                Expired Ingredients
-                            </Title>
-                        </Group>
-                        <Divider mb="md" />
-                        <Stack gap="sm">
-                            {expiredIngredients.map((item: Ingredient) => (
-                                <IngredientNotificationCard
-                                    key={item.id}
-                                    item={item}
-                                    status="expired"
-                                />
-                            ))}
-                        </Stack>
-                    </Paper>
-                )}
-
-                {expiringSoonIngredients.length > 0 && (
-                    <Paper
-                        shadow="sm"
-                        p="lg"
-                        radius="md"
-                        style={{
-                            backgroundColor: 'white',
-                            border: '2px solid #e8f0e8',
-                        }}
-                    >
-                        <Group mb="md">
-                            <Badge color="orange" variant="filled" size="lg">
-                                {expiringSoonIngredients.length}
-                            </Badge>
-                            <Title order={4} style={{ color: '#f57c00' }}>
-                                Expiring Soon (3 days or less)
-                            </Title>
-                        </Group>
-                        <Divider mb="md" />
-                        <Stack gap="sm">
-                            {expiringSoonIngredients.map((item: Ingredient) => (
-                                <IngredientNotificationCard
-                                    key={item.id}
-                                    item={item}
-                                    status="expiring-soon"
-                                />
-                            ))}
-                        </Stack>
-                    </Paper>
-                )}
-
-                {expiringThisWeekIngredients.length > 0 && (
-                    <Paper
-                        shadow="sm"
-                        p="lg"
-                        radius="md"
-                        style={{
-                            backgroundColor: 'white',
-                            border: '2px solid #e8f0e8',
-                        }}
-                    >
-                        <Group mb="md">
-                            <Badge color="yellow" variant="filled" size="lg">
-                                {expiringThisWeekIngredients.length}
-                            </Badge>
-                            <Title order={4} style={{ color: '#fbc02d' }}>
-                                Expiring This Week (4-7 days)
-                            </Title>
-                        </Group>
-                        <Divider mb="md" />
-                        <Stack gap="sm">
-                            {expiringThisWeekIngredients.map((item: Ingredient) => (
-                                <IngredientNotificationCard
-                                    key={item.id}
-                                    item={item}
-                                    status="expiring-week"
-                                />
-                            ))}
-                        </Stack>
-                    </Paper>
+                        {recipeNotifications.length > 0 && (
+                            <div>
+                                <Group gap="sm" mb="sm">
+                                    <BookHeart size={20} color="#8a9a7b" />
+                                    <Text fw={600} size="lg" style={{ color: '#2d3319' }}>
+                                        Recipe Activity
+                                    </Text>
+                                    <Badge size="lg" color="green" variant="filled">
+                                        {recipeNotifications.length}
+                                    </Badge>
+                                </Group>
+                                <Stack gap="sm">
+                                    {recipeNotifications.map(notification => (
+                                        <NotificationCard key={notification._id} notification={notification} />
+                                    ))}
+                                </Stack>
+                            </div>
+                        )}
+                    </Stack>
                 )}
             </Stack>
         </Stack>

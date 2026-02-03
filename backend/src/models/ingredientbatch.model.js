@@ -7,7 +7,8 @@ const ingredientBatchSchema = new Schema(
         quantity: { type: String, required: true, minLength: 1, maxLength: 50 },
         dateAdded: { type: Date, required: true },
         expiryDate: { type: Date, required: true },
-        isUsed: { type: Boolean, default: false }
+        isUsed: { type: Boolean, default: false },
+        isDeleted: { type: Boolean, default: false }
     },
     { timestamps: true }
 );

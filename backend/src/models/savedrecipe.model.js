@@ -6,6 +6,11 @@ const savedRecipeSchema = new Schema(
         apiRecipeId: { type: String, required: true },
         title: { type: String, required: true },
         category: { type: String },
+        area: { type: String },
+        image: { type: String },
+        instructions: { type: String },
+        strYoutube: { type: String },
+        ingredients: { type: Schema.Types.Mixed },
         isFavorite: { type: Boolean, default: false },
         savedAt: { type: Date, default: Date.now }
     },

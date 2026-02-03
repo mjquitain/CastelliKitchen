@@ -1,25 +1,42 @@
 import { SavedRecipe } from "../models/savedrecipe.model.js";
+import { createNotification, getNotificationMessage } from "../utils/notificationHelper.js";
 
 const saveRecipe = async (req, res) => {
 
     try {
-        const { apiRecipeId, title, category, isFavorite } = req.body;
+        const { apiRecipeId, title, category, isFavorite, image, instructions, area, strYoutube, ingredients } = req.body;
 
-        const existingRecipe = await SavedRecipe.findOne({ apiRecipeId, userId: req.user._id });
+        const existingRecipe = await SavedRecipe.findOne({ apiRecipeId, userId: req.user.id });
 
-        // Prevent duplicate saved recipes
         if (existingRecipe) {
-            return res.status(409).json({ message: "Recipe already saved." });
+            return res.status(409).json({ message: "Recipe already saved.", recipe: existingRecipe });
         }
 
-        // Create and save recipe
         const savedRecipe = await SavedRecipe.create({
             userId: req.user.id,
             apiRecipeId,
             title,
             category,
+            area,
+            image,
+            instructions,
+            strYoutube,
+            ingredients,
             isFavorite: isFavorite || false,
         });
+
+        try {
+            const notificationType = isFavorite ? 'recipe_favorited' : 'recipe_saved';
+            await createNotification(
+                req.user.id,
+                notificationType,
+                getNotificationMessage(notificationType, title),
+                savedRecipe._id,
+                title
+            );
+        } catch (notifError) {
+            console.error('Failed to create notification:', notifError);
+        }
 
         res.status(201).json(savedRecipe);
 
@@ -50,14 +67,42 @@ const getFavoriteRecipes = async (req, res) => {
 
 const toggleFavoriteStatus = async (req, res) => {
     try {
-        const togglerecipe = await SavedRecipe.findOne({ _id: req.params.id, userId: req.user.id });
+        const togglerecipe = await SavedRecipe.findOne({
+            _id: req.params.id,
+            userId: req.user.id
+        });
 
         if (!togglerecipe) {
             return res.status(404).json({ message: "Recipe not found." });
         }
 
+        const wasFavorite = togglerecipe.isFavorite;
         togglerecipe.isFavorite = !togglerecipe.isFavorite;
         await togglerecipe.save();
+
+
+        try {
+            if (togglerecipe.isFavorite && !wasFavorite) {
+                await createNotification(
+                    req.user.id,
+                    'recipe_favorited',
+                    getNotificationMessage('recipe_favorited', togglerecipe.title),
+                    togglerecipe._id,
+                    togglerecipe.title
+                );
+            } else if (!togglerecipe.isFavorite && wasFavorite) {
+                await createNotification(
+                    req.user.id,
+                    'recipe_unfavorited',
+                    getNotificationMessage('recipe_unfavorited', togglerecipe.title),
+                    togglerecipe._id,
+                    togglerecipe.title
+                );
+            }
+        } catch (notifError) {
+            console.error('Failed to create notification:', notifError);
+        }
+
         res.status(200).json(togglerecipe);
     } catch (error) {
         res.status(500).json({ message: "Error updating favorite status.", error });

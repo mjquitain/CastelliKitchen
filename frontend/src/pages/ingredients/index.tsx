@@ -1,3 +1,5 @@
+import { useAddIngredient, useIngredients } from "@/hooks/useIngredients";
+import { useDeleteIngredientBatch, useUpdateIngredientBatch, } from "@/hooks/useIngredientsBatches";
 import {
     ActionIcon,
     Badge,
@@ -17,15 +19,20 @@ import {
 import { DatePickerInput } from "@mantine/dates";
 import { Edit, Plus, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
-import { ingredients } from "../../data/mock_ingredients_data";
 
-interface Ingredient {
-    id: number;
-    name: string;
-    category: string;
+interface IngredientBatch {
+    id: string;
     quantity: string;
     dateAdded: string;
     expiryDate: string;
+    isUsed: boolean;
+}
+
+interface Ingredient {
+    id: string;
+    name: string;
+    category: string;
+    batches: IngredientBatch[];
 }
 
 export const calculateDaysInStorage = (dateAdded: string): number => {
@@ -63,67 +70,44 @@ function IngredientsPage() {
     const [expiryDate, setExpiryDate] = useState<Date | null>(null);
     const [IngredientFormOpened, setIngredientFormOpened] = useState(false);
     const [ingredientToEdit, setIngredientToEdit] = useState<Ingredient | null>(null);
+    const [batchToEdit, setBatchToEdit] = useState<{ ingredientId: string; batchId: string } | null>(null);
+    const { data: ingredients = [], isLoading } = useIngredients();
+    const addIngredientMutation = useAddIngredient();
+    const deleteBatchMutation = useDeleteIngredientBatch();
+    const updateBatchMutation = useUpdateIngredientBatch();
 
-    const [ingredientList, setIngredientList] = useState<Ingredient[]>(() => {
-        const stored = localStorage.getItem("ingredients");
-        return stored ? JSON.parse(stored) : ingredients;
-    });
-
-    const saveIngredients = (newList: Ingredient[]) => {
-        setIngredientList(newList);
-        localStorage.setItem("ingredients", JSON.stringify(newList));
-    };
-
-    const deleteIngredient = (id: number) => {
-        const newList = ingredientList.filter(item => item.id !== id);
-        saveIngredients(newList);
-    };
-
-    const markAsUsed = (id: number) => {
-        deleteIngredient(id);
-    };
-
-    const editIngredient = (updatedIngredient: Ingredient) => {
-        const newList = ingredientList.map(item =>
-            item.id === updatedIngredient.id ? updatedIngredient : item
-        );
-        saveIngredients(newList);
-        setIngredientToEdit(null);
-    };
-
-    const handleOpenEditModal = (ingredient: Ingredient) => {
-        setIngredientToEdit(ingredient);
-        setName(ingredient.name);
-        setQuantity(ingredient.quantity);
-        setCategory(ingredient.category);
-        setDateAdded(new Date(ingredient.dateAdded));
-        setExpiryDate(new Date(ingredient.expiryDate));
+    const handleOpenEditModal = (item: any) => {
+        setIngredientToEdit(item);
+        setBatchToEdit({ ingredientId: item.ingredientId, batchId: item.batchId });
+        setName(item.name);
+        setQuantity(item.quantity);
+        setCategory(item.category);
+        setDateAdded(new Date(item.dateAdded));
+        setExpiryDate(new Date(item.expiryDate));
         setIngredientFormOpened(true);
     };
 
     const handleFormSubmit = () => {
         if (!name || !quantity || !category || !dateAdded || !expiryDate) return;
 
-        const newIngredientData = {
-            name,
-            quantity,
-            category,
-            dateAdded: new Date(dateAdded).toISOString(),
-            expiryDate: new Date(expiryDate).toISOString(),
-        };
-
-        if (ingredientToEdit) {
-            editIngredient({
-                ...ingredientToEdit,
-                ...newIngredientData,
+        if (batchToEdit) {
+            updateBatchMutation.mutate({
+                ingredientId: batchToEdit.ingredientId,
+                batchId: batchToEdit.batchId,
+                payload: {
+                    quantity,
+                    dateAdded: dateAdded instanceof Date ? dateAdded.toISOString() : dateAdded,
+                    expiryDate: expiryDate instanceof Date ? expiryDate.toISOString() : expiryDate,
+                },
             });
         } else {
-            const newIngredient: Ingredient = {
-                id: Date.now(),
-                ...newIngredientData,
-            };
-            const updated = [...ingredientList, newIngredient];
-            saveIngredients(updated);
+            addIngredientMutation.mutate({
+                name,
+                quantity,
+                category,
+                dateAdded: dateAdded instanceof Date ? dateAdded.toISOString() : dateAdded,
+                expiryDate: expiryDate instanceof Date ? expiryDate.toISOString() : expiryDate,
+            });
         }
 
         setName("");
@@ -132,23 +116,56 @@ function IngredientsPage() {
         setDateAdded(null);
         setExpiryDate(null);
         setIngredientToEdit(null);
+        setBatchToEdit(null);
         setIngredientFormOpened(false);
     };
+
+    const tableRows = useMemo(() => {
+        if (!Array.isArray(ingredients)) return [];
+
+        return ingredients
+            .filter((ingredient) => ingredient.batches && ingredient.batches.length > 0)
+            .flatMap((ingredient) =>
+                ingredient.batches.map((batch) => ({
+                    ingredientId: ingredient._id,
+                    batchId: batch._id,
+                    name: ingredient.name,
+                    category: ingredient.category,
+                    quantity: batch.quantity,
+                    dateAdded: batch.dateAdded,
+                    expiryDate: batch.expiryDate,
+                }))
+            );
+    }, [ingredients]);
 
     const modalTitle = ingredientToEdit ? "Edit Ingredient" : "Add Ingredient";
     const submitButtonLabel = ingredientToEdit ? "Save Changes" : "Add Ingredient";
 
     const filteredIngredients = useMemo(() => {
-        return ingredientList.filter((item) => {
+        return tableRows.filter((item) => {
             const matchesSearch = item.name
                 .toLowerCase()
                 .includes(search.toLowerCase());
+
             const matchesCategory = selectedCategory
                 ? item.category === selectedCategory
                 : true;
+
             return matchesSearch && matchesCategory;
         });
-    }, [search, selectedCategory, ingredientList]);
+    }, [search, selectedCategory, tableRows]);
+
+    const handleDeleteIngredient = (ingredientId: string, batchId: string) => {
+        deleteBatchMutation.mutate({ ingredientId, batchId });
+    };
+
+    const markAsUsed = (ingredientId: string, batchId: string) => {
+        updateBatchMutation.mutate({
+            ingredientId,
+            batchId,
+            payload: { isUsed: true },
+        });
+    };
 
     return (
         <Stack
@@ -249,6 +266,10 @@ function IngredientsPage() {
                                 {filteredIngredients.map((item: Ingredient, index: number) => {
                                     const expiryStatus = getExpiryStatus(item.expiryDate);
 
+                                    if (isLoading) {
+                                        return <Text>Loading ingredients...</Text>;
+                                    }
+
                                     return (
                                         <Table.Tr key={index}>
                                             <Table.Td>
@@ -307,7 +328,7 @@ function IngredientsPage() {
                                                     <Button
                                                         color="#6b7c5e"
                                                         size="xs"
-                                                        onClick={() => markAsUsed(item.id)}
+                                                        onClick={() => markAsUsed(item.ingredientId, item.batchId)}
                                                     >
                                                         Mark As Used
                                                     </Button>
@@ -323,7 +344,7 @@ function IngredientsPage() {
                                                         variant="light"
                                                         color="red"
                                                         size="sm"
-                                                        onClick={() => deleteIngredient(item.id)}
+                                                        onClick={() => handleDeleteIngredient(item.ingredientId, item.batchId)}
                                                     >
                                                         <Trash2 size={16} />
                                                     </ActionIcon>
@@ -359,8 +380,17 @@ function IngredientsPage() {
                 </Paper>
                 <Modal
                     opened={IngredientFormOpened}
-                    onClose={() => setIngredientFormOpened(false)}
-                    title={<Text fw={"500"} size="lg">Add Ingredient</Text>}
+                    onClose={() => {
+                        setIngredientFormOpened(false);
+                        setIngredientToEdit(null);
+                        setBatchToEdit(null);
+                        setName("");
+                        setQuantity("");
+                        setCategory(null);
+                        setDateAdded(null);
+                        setExpiryDate(null);
+                    }}
+                    title={<Text fw={"500"} size="lg">{modalTitle}</Text>}
                     centered
                     overlayProps={{
                         backgroundOpacity: 0.55,
@@ -375,6 +405,7 @@ function IngredientsPage() {
                             placeholder="e.g., Milk"
                             value={name}
                             onChange={(e) => setName(e.currentTarget.value)}
+                            disabled={!!batchToEdit}
                         />
                         <TextInput
                             label="Quantity"
@@ -395,6 +426,7 @@ function IngredientsPage() {
                             ]}
                             value={category}
                             onChange={setCategory}
+                            disabled={!!batchToEdit}
                         />
                         <DatePickerInput
                             label="Date Added"
@@ -412,29 +444,10 @@ function IngredientsPage() {
                             mt="md"
                             fullWidth
                             color="#6b7c5e"
-                            onClick={() => {
-                                if (!name || !quantity || !category || !dateAdded || !expiryDate) return;
-
-                                const newIngredient: Ingredient = {
-                                    id: Date.now(),
-                                    name,
-                                    category,
-                                    quantity,
-                                    dateAdded: new Date(dateAdded).toISOString(),
-                                    expiryDate: new Date(expiryDate).toISOString(),
-                                };
-
-                                const updated = [...ingredientList, newIngredient];
-                                saveIngredients(updated);
-                                setName("");
-                                setQuantity("");
-                                setCategory(null);
-                                setDateAdded(null);
-                                setExpiryDate(null);
-                                setIngredientFormOpened(false);
-                            }}
+                            loading={addIngredientMutation.isPending}
+                            onClick={handleFormSubmit}
                         >
-                            Add Ingredient
+                            {submitButtonLabel}
                         </Button>
                     </Flex>
                 </Modal>

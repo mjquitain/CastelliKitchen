@@ -8,7 +8,7 @@ export default function Header() {
 
   return (
     <>
-      <header className="p-2 flex space-between shadow-lg border-b" style={{ borderColor: '#8a9a7b', position: 'sticky', top: 0, backgroundColor: '#8a9a7b', zIndex: 10 }}>
+      <header className="p-2 flex space-between shadow-lg border-b" style={{ borderColor: '#8a9a7b', position: 'sticky', top: 0, backgroundColor: '#8a9a7b', zIndex: 15 }}>
         <Box style={{ display: 'flex', justifyContent: 'space-between', width: '100%', }}>
           <Group ml={'16px'} >
             <ChefHat size={32} color="white" />
