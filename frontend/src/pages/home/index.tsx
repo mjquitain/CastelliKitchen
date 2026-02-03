@@ -1,7 +1,8 @@
 import { RecipeDetailModal } from "@/components/modals/RecipeModal";
 import { RecipeCard } from "@/components/RecipeCard";
-import { ingredients as mockIngredients } from '@/data/mock_ingredients_data';
-import { FAVORITE_KEY, SAVED_KEY, type ActionType, type MealRecipe } from '@/pages/recipe';
+import { useRecipes } from '@/hooks/useRecipes';
+import api from '@/lib/api';
+import { type ActionType, type MealRecipe } from '@/pages/recipe';
 import {
     ActionIcon,
     Badge,
@@ -29,17 +30,15 @@ interface QuickStat {
     color: string;
 }
 
-const loadFromLocalStorage = (key: string): MealRecipe[] => {
-    try {
-        const item = window.localStorage.getItem(key);
-        return item ? JSON.parse(item) : [];
-    } catch (error) {
-        console.error(`Error loading state from Local Storage for key: ${key}`, error);
-        return [];
-    }
-};
-
 function HomePage() {
+    const {
+        savedRecipes,
+        favoriteRecipes,
+        handleSave,
+        handleFavorite,
+        handleDelete
+    } = useRecipes();
+
     const [recipes, setRecipes] = useState<any[]>([]);
     const [defaultRecipes, setDefaultRecipes] = useState<any[]>([]);
     const [ingredients, setIngredients] = useState<string[]>([]);
@@ -51,28 +50,7 @@ function HomePage() {
     const [selectedRecipe, setSelectedRecipe] = useState<MealRecipe | null>(null);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
     const [activeTab, setActiveTab] = useState("Suggested Recipe");
-    const [savedRecipes, setSavedRecipes] = useState<MealRecipe[]>(() =>
-        loadFromLocalStorage(SAVED_KEY)
-    );
-    const [favoriteRecipes, setFavoriteRecipes] = useState<MealRecipe[]>(() =>
-        loadFromLocalStorage(FAVORITE_KEY)
-    );
-
-    useEffect(() => {
-        try {
-            window.localStorage.setItem(SAVED_KEY, JSON.stringify(savedRecipes));
-        } catch (error) {
-            console.error("Error saving savedRecipes to Local Storage:", error);
-        }
-    }, [savedRecipes]);
-
-    useEffect(() => {
-        try {
-            window.localStorage.setItem(FAVORITE_KEY, JSON.stringify(favoriteRecipes));
-        } catch (error) {
-            console.error("Error saving favoriteRecipes to Local Storage:", error);
-        }
-    }, [favoriteRecipes]);
+    const [userIngredients, setUserIngredients] = useState<any[]>([]);
 
     const fetchRecipes = async (): Promise<void> => {
         try {
@@ -158,24 +136,41 @@ function HomePage() {
         try {
             setIsLoading(true);
 
+            let ingredients = userIngredients;
+            if (ingredients.length === 0) {
+                const response = await api.get('/ingredients');
+                const data = response.data;
+                ingredients = Array.isArray(data) ? data : (data.ingredients || data.data || []);
+            }
+
             const today = new Date();
-            const soonExpiring = mockIngredients
-                .filter(item => {
-                    const expiry = new Date(item.expiryDate);
-                    const daysToExpire = (expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24);
-                    return daysToExpire <= 5 && daysToExpire >= 0;
-                })
-                .map(item => item.name.toLowerCase());
+            const soonExpiringIngredients: string[] = [];
 
-            setExpiringIngredients(soonExpiring);
+            ingredients.forEach((ingredient: any) => {
+                if (ingredient.batches && ingredient.batches.length > 0) {
+                    const hasExpiringBatch = ingredient.batches.some((batch: any) => {
+                        if (batch.isUsed || batch.isDeleted) return false;
 
-            if (soonExpiring.length === 0) {
+                        const expiry = new Date(batch.expiryDate);
+                        const daysToExpire = (expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24);
+                        return daysToExpire <= 3 && daysToExpire >= 0;
+                    });
+
+                    if (hasExpiringBatch) {
+                        soonExpiringIngredients.push(ingredient.name.toLowerCase());
+                    }
+                }
+            });
+
+            setExpiringIngredients(soonExpiringIngredients);
+
+            if (soonExpiringIngredients.length === 0) {
                 setSuggestedRecipes([]);
                 return;
             }
 
             const allMeals: any[] = [];
-            for (const ingredient of soonExpiring) {
+            for (const ingredient of soonExpiringIngredients) {
                 const response = await fetch(
                     `https://www.themealdb.com/api/json/v1/1/filter.php?i=${encodeURIComponent(ingredient)}`
                 );
@@ -199,7 +194,36 @@ function HomePage() {
     useEffect(() => {
         fetchRecipes();
         fetchSuggestedRecipes();
+        fetchUserIngredients();
     }, []);
+
+    const fetchUserIngredients = async () => {
+        try {
+            const response = await api.get('/ingredients');
+            const data = response.data;
+
+            let ingredients = [];
+            if (Array.isArray(data)) {
+                ingredients = data;
+            } else if (data.ingredients) {
+                ingredients = data.ingredients;
+            } else if (data.data) {
+                ingredients = data.data;
+            }
+
+            const availableIngredients = ingredients.filter((ingredient: any) => {
+                if (!ingredient.batches || ingredient.batches.length === 0) return false;
+                return ingredient.batches.some((batch: any) =>
+                    !batch.isUsed && !batch.isDeleted
+                );
+            });
+
+            setUserIngredients(availableIngredients);
+        } catch (error) {
+            console.error("Error fetching user ingredients:", error);
+            setUserIngredients([]);
+        }
+    };
 
     const addIngredient = (): void => {
         if (currentIngredient.trim() !== "") {
@@ -216,12 +240,12 @@ function HomePage() {
     };
 
     const recipesFound = defaultRecipes.length;
-    const ingredientsAvailable = mockIngredients.length;
-    const foundSavedRecipes = SAVED_KEY ? JSON.parse(localStorage.getItem(SAVED_KEY) || '[]').length : 0;
+    const ingredientsAvailable = userIngredients.length;
+    const foundSavedRecipes = savedRecipes.length;
 
     const quickStats: QuickStat[] = [
         { icon: ChefHat, label: "Recipes Found", value: recipesFound.toString(), color: "#8a9a7b" },
-        { icon: Heart, label: "Saved Recipes", value: foundSavedRecipes.toString(), color: "#8a9a7b" },
+        { icon: Heart, label: "Saved & Favorite Recipes", value: foundSavedRecipes.toString(), color: "#8a9a7b" },
         { icon: Leaf, label: "Ingredients Available", value: ingredientsAvailable.toString(), color: "#8a9a7b" },
     ];
 
@@ -247,33 +271,20 @@ function HomePage() {
         }
     };
 
-    const handleSaveRecipe = (recipe: MealRecipe) => {
-        if (
-            !savedRecipes.some(r => r.idMeal === recipe.idMeal) &&
-            !favoriteRecipes.some(r => r.idMeal === recipe.idMeal)
-        ) {
-            setSavedRecipes(prev => [...prev, recipe]);
-        }
+    const handleSaveRecipe = async (recipe: MealRecipe) => {
+        await handleSave(recipe);
     };
 
-    const handleUnsaveRecipe = (idMeal: string) => {
-        setSavedRecipes(prev => prev.filter(r => r.idMeal !== idMeal));
+    const handleUnsaveRecipe = async (idMeal: string) => {
+        await handleDelete(idMeal);
     };
 
-    const handleFavoriteRecipe = (recipe: MealRecipe) => {
-        if (!favoriteRecipes.some(r => r.idMeal === recipe.idMeal)) {
-            setFavoriteRecipes(prev => [...prev, recipe]);
-
-            setSavedRecipes(prev => prev.filter(r => r.idMeal !== recipe.idMeal));
-        }
+    const handleFavoriteRecipe = async (recipe: MealRecipe) => {
+        await handleFavorite(recipe);
     };
 
-    const handleUnfavoriteRecipe = (idMeal: string) => {
-        const recipeToRestore = favoriteRecipes.find(r => r.idMeal === idMeal);
-        setFavoriteRecipes(prev => prev.filter(r => r.idMeal !== idMeal));
-        if (recipeToRestore && !savedRecipes.some(r => r.idMeal === idMeal)) {
-            setSavedRecipes(prev => [...prev, recipeToRestore]);
-        }
+    const handleUnfavoriteRecipe = async (recipe: MealRecipe) => {
+        await handleFavorite(recipe);
     };
 
     const isRecipeSaved = (idMeal: string) => savedRecipes.some(r => r.idMeal === idMeal);
