@@ -20,9 +20,13 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
         .map(i => {
             const ingredient = selectedRecipe[`strIngredient${i}`];
             const measure = selectedRecipe[`strMeasure${i}`];
-            return ingredient && ingredient.trim() !== "" ? (
-                <li key={i}>{ingredient} - {measure}</li>
-            ) : null;
+            if (ingredient && ingredient.trim() !== "") {
+                const displayText = measure && measure.trim() !== ""
+                    ? `${measure} - ${ingredient}`
+                    : ingredient;
+                return <li key={i}>{displayText}</li>;
+            }
+            return null;
         })
         .filter(Boolean);
 
@@ -54,9 +58,9 @@ export const RecipeDetailModal: React.FC<RecipeDetailModalProps> = ({
 
                 <Group gap={"1px"} mb={"xs"} style={{ flexDirection: "column", alignItems: "flex-start" }}>
                     <Text fw={600} style={{ color: "#2d3319" }}>Ingredients:</Text>
-                    <Text size="sm" style={{ color: "grey.3", paddingLeft: "20px" }}>
+                    <Box component="ul" style={{ color: "dimgray", paddingLeft: "20px", margin: "4px 0" }}>
                         {ingredientsList}
-                    </Text>
+                    </Box>
                 </Group>
 
                 <Group mb={"xs"} gap={"1px"} style={{ flexDirection: "column", alignItems: "flex-start" }}>

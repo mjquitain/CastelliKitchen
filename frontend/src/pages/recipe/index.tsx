@@ -1,7 +1,9 @@
 
+import { RecipeActionModal } from "@/components/modals/ActionModal";
 import { RecipeDetailModal } from "@/components/modals/RecipeModal";
 import { RecipeCard } from "@/components/RecipeCard";
-import { ingredients } from "@/data/mock_ingredients_data";
+import { useRecipes } from "@/hooks/useRecipes";
+import api from "@/lib/api";
 import {
     Badge,
     Box,
@@ -20,7 +22,6 @@ import {
     TextInput,
     Title
 } from "@mantine/core";
-import { modals } from '@mantine/modals';
 import { Blocks, BookHeart, Heart, Plus, Save } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -44,51 +45,78 @@ export type ActionType = 'save' | 'favorite';
 export const SAVED_KEY = "userSavedRecipes";
 export const FAVORITE_KEY = "userFavoriteRecipes";
 
-const loadFromLocalStorage = (key: string): MealRecipe[] => {
-    try {
-        const item = window.localStorage.getItem(key);
-        return item ? JSON.parse(item) : [];
-    } catch (error) {
-        console.error(`Error loading state from Local Storage for key: ${key}`, error);
-        return [];
-    }
-};
-
 function RecipePage() {
+    const {
+        savedRecipes = [],
+        favoriteRecipes = [],
+        isLoading: isApiLoading,
+        handleSave,
+        handleFavorite,
+        handleDelete
+    } = useRecipes();
+
     const [selectedIngredients, setSelectedIngredients] = useState<string[]>([]);
-    const [recipes, setRecipes] = useState<any[]>([]);
-    const [isLoading, setIsLoading] = useState(false);
-    const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-    const [selectedRecipe, setSelectedRecipe] = useState<MealRecipe | null>(null);
+    const [recipes, setRecipes] = useState<MealRecipe[]>([]);
+    const [isInternalLoading, setIsInternalLoading] = useState(false);
     const [hasSearched, setHasSearched] = useState(false);
+    const [selectedRecipe, setSelectedRecipe] = useState<MealRecipe | null>(null);
+    const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
     const [savedSearch, setSavedSearch] = useState("");
     const [savedCategory, setSavedCategory] = useState<string | null>(null);
     const [favSearch, setFavSearch] = useState("");
     const [favCategory, setFavCategory] = useState<string | null>(null);
     const [RecipeFormOpened, setRecipeFormOpened] = useState(false);
-
-    const [savedRecipes, setSavedRecipes] = useState<MealRecipe[]>(() =>
-        loadFromLocalStorage(SAVED_KEY)
-    );
-    const [favoriteRecipes, setFavoriteRecipes] = useState<MealRecipe[]>(() =>
-        loadFromLocalStorage(FAVORITE_KEY)
-    );
-
-    useEffect(() => {
-        try {
-            window.localStorage.setItem(SAVED_KEY, JSON.stringify(savedRecipes));
-        } catch (error) {
-            console.error("Error saving savedRecipes to Local Storage:", error);
-        }
-    }, [savedRecipes]);
+    const [isActionModalOpen, setIsActionModalOpen] = useState(false);
+    const [recipeToActOn, setRecipeToActOn] = useState<MealRecipe | null>(null);
+    const [currentActionType, setCurrentActionType] = useState<ActionType>('save');
+    const [activeTab, setActiveTab] = useState<string | null>("generated recipes");
+    const [ingredientsList, setIngredientsList] = useState<Ingredient[]>([]);
+    const [isIngredientsLoading, setIsIngredientsLoading] = useState(true);
 
     useEffect(() => {
-        try {
-            window.localStorage.setItem(FAVORITE_KEY, JSON.stringify(favoriteRecipes));
-        } catch (error) {
-            console.error("Error saving favoriteRecipes to Local Storage:", error);
-        }
-    }, [favoriteRecipes]);
+        const fetchUserIngredients = async () => {
+            try {
+                setIsIngredientsLoading(true);
+                const response = await api.get('/ingredients');
+                const data = response.data;
+
+                let ingredients = [];
+                if (Array.isArray(data)) {
+                    ingredients = data;
+                } else if (data.ingredients) {
+                    ingredients = data.ingredients;
+                } else if (data.data) {
+                    ingredients = data.data;
+                }
+
+                const availableIngredients = ingredients.filter(
+                    (ingredient: any) => ingredient.batches && ingredient.batches.length > 0
+                );
+
+                setIngredientsList(availableIngredients);
+            } catch (error) {
+                console.error("Fetch error:", error);
+            } finally {
+                setIsIngredientsLoading(false);
+            }
+        };
+        fetchUserIngredients();
+    }, []);
+
+    const [newRecipe, setNewRecipe] = useState({
+        strMeal: '',
+        strCategory: '',
+        strArea: '',
+        strInstructions: '',
+        strIngredients: '',
+        strYoutube: ''
+    });
+
+    const isRecipeSaved = (id: string) => savedRecipes.some(r => r.idMeal === id);
+    const isRecipeFavorite = (id: string) =>
+        savedRecipes.some(
+            r => r.idMeal === id && r.isFavorite === true
+        );
 
     const toggleIngredient = (ingredientName: string) => {
         setSelectedIngredients((prev) =>
@@ -99,61 +127,47 @@ function RecipePage() {
     };
 
     const fetchRecipes = async () => {
-        setRecipes([]);
-        setSelectedRecipe(null);
-        setIsDetailModalOpen(false);
-
         if (selectedIngredients.length === 0) {
+            setRecipes([]);
             setHasSearched(false);
             return;
         }
 
         setHasSearched(true);
-        setIsLoading(true);
+        setIsInternalLoading(true);
 
         try {
             const primaryQuery = selectedIngredients[0];
-            const filterUrl = `https://www.themealdb.com/api/json/v1/1/filter.php?i=${primaryQuery}`;
-            const response = await fetch(filterUrl);
+            const response = await fetch(`https://www.themealdb.com/api/json/v1/1/filter.php?i=${primaryQuery}`);
             const filterData = await response.json();
 
             if (!filterData.meals) {
-                setIsLoading(false);
+                setRecipes([]);
                 return;
             }
 
-            const mealIds = filterData.meals.map((meal: any) => meal.idMeal);
-            const mealsToFetch = mealIds.slice(0);
-
             const detailedRecipes = await Promise.all(
-                mealsToFetch.map(async (idMeal: string) => {
-                    const detailRes = await fetch(`https://www.themealdb.com/api/json/v1/1/lookup.php?i=${idMeal}`);
+                filterData.meals.map(async (meal: any) => {
+                    const detailRes = await fetch(`https://www.themealdb.com/api/json/v1/1/lookup.php?i=${meal.idMeal}`);
                     const detailData = await detailRes.json();
                     return detailData.meals ? detailData.meals[0] : null;
                 })
             );
 
-            const requiredIngredients = selectedIngredients.map(name => name.toLowerCase());
-
-            const filteredRecipes = detailedRecipes.filter((recipe) => {
+            const requiredIngs = selectedIngredients.map(n => n.toLowerCase());
+            const filtered = detailedRecipes.filter(recipe => {
                 if (!recipe) return false;
-
-                const recipeIngredients = Array.from({ length: 20 }, (_, i) => recipe[`strIngredient${i + 1}`])
+                const recipeIngs = Array.from({ length: 20 }, (_, i) => recipe[`strIngredient${i + 1}`])
                     .filter(Boolean)
                     .map((ing: string) => ing.toLowerCase().trim());
+                return requiredIngs.every(req => recipeIngs.some(ri => ri.includes(req)));
+            });
 
-                return requiredIngredients.every((requiredIng) =>
-                    recipeIngredients.some((ri) => ri.includes(requiredIng))
-                );
-            }) as MealRecipe[];
-
-            setRecipes(filteredRecipes);
-
+            setRecipes(filtered);
         } catch (error) {
-            console.error("Error fetching recipes:", error);
-            setRecipes([]);
+            console.error("Fetch error:", error);
         } finally {
-            setIsLoading(false);
+            setIsInternalLoading(false);
         }
     };
 
@@ -179,98 +193,16 @@ function RecipePage() {
         }
     };
 
-    const handleSaveRecipe = (recipe: MealRecipe) => {
-        if (
-            !savedRecipes.some(r => r.idMeal === recipe.idMeal) &&
-            !favoriteRecipes.some(r => r.idMeal === recipe.idMeal)
-        ) {
-            setSavedRecipes(prev => [...prev, recipe]);
-        }
-    };
-
-    const handleUnsaveRecipe = (idMeal: string) => {
-        setSavedRecipes(prev => prev.filter(r => r.idMeal !== idMeal));
-    };
-
-    const handleFavoriteRecipe = (recipe: MealRecipe) => {
-        if (!favoriteRecipes.some(r => r.idMeal === recipe.idMeal)) {
-            setFavoriteRecipes(prev => [...prev, recipe]);
-            setSavedRecipes(prev => prev.filter(r => r.idMeal !== recipe.idMeal));
-        }
-    };
-
-    const handleUnfavoriteRecipe = (idMeal: string) => {
-        const recipeToRestore = favoriteRecipes.find(r => r.idMeal === idMeal);
-        setFavoriteRecipes(prev => prev.filter(r => r.idMeal !== idMeal));
-        if (recipeToRestore && !savedRecipes.some(r => r.idMeal === idMeal)) {
-            setSavedRecipes(prev => [...prev, recipeToRestore]);
-        }
-    };
-
-    const isRecipeSaved = (idMeal: string) => savedRecipes.some(r => r.idMeal === idMeal);
-    const isRecipeFavorite = (idMeal: string) => favoriteRecipes.some(r => r.idMeal === idMeal);
-
     const openActionModal = (recipe: MealRecipe, action: ActionType) => {
-        const isSaved = isRecipeSaved(recipe.idMeal);
-        const isFavorited = isRecipeFavorite(recipe.idMeal);
-
-        const isRemoveAction = (action === 'save' && isSaved) || (action === 'favorite' && isFavorited);
-
-        const actionLabel = action === 'save' ? 'Saved Recipes' : 'Favorite Recipes';
-
-        let title: string;
-        let messageComponent: React.ReactNode;
-        let confirmLabel: string;
-        let color: 'green' | 'red' | 'orange';
-
-        if (isRemoveAction) {
-            title = `Remove recipe from ${actionLabel}?`;
-            messageComponent = (
-                <Text size="sm">
-                    Are you sure you want to remove "{recipe.strMeal}" from your {actionLabel}?
-                </Text>
-            );
-            confirmLabel = 'Yes, Remove It';
-            color = 'red';
-        } else {
-            title = `Add recipe to ${actionLabel}?`;
-            confirmLabel = `Yes, ${action === 'save' ? 'Save' : 'Favorite'}`;
-
-            if (action === 'favorite' && isSaved) {
-                messageComponent = (
-                    <Text size="sm" c="orange">
-                        Favoriting "{recipe.strMeal}" will automatically remove it from your Saved Recipes section. Continue?
-                    </Text>
-                );
-                color = 'green';
-            } else {
-                messageComponent = (
-                    <Text size="sm">
-                        Confirm you want to {action} "{recipe.strMeal}".
-                    </Text>
-                );
-                color = action === 'save' ? 'green' : 'red';
-            }
-        }
-
-        modals.openConfirmModal({
-            title: <Title order={4} ta="center">{title}</Title>,
-            centered: true,
-            confirmProps: { color: color, children: confirmLabel },
-            labels: { cancel: 'Cancel', confirm: confirmLabel },
-            children: messageComponent,
-
-            onConfirm: () => {
-                if (action === 'save') {
-                    isSaved ? handleUnsaveRecipe(recipe.idMeal) : handleSaveRecipe(recipe);
-                } else {
-                    isFavorited ? handleUnfavoriteRecipe(recipe.idMeal) : handleFavoriteRecipe(recipe);
-                }
-            },
-        });
+        setRecipeToActOn(recipe);
+        setCurrentActionType(action);
+        setIsActionModalOpen(true);
     };
 
-    const filteredSavedRecipes = savedRecipes.filter((recipe) => {
+    const filteredSavedRecipes = (savedRecipes || []).filter((recipe) => {
+        if (!recipe?.strMeal) return false;
+        if (recipe.isFavorite === true) return false;
+
         const matchesSearch = recipe.strMeal
             .toLowerCase()
             .includes(savedSearch.toLowerCase());
@@ -303,7 +235,7 @@ function RecipePage() {
                 p="xl"
                 gap="xs"
             >
-                <Tabs defaultValue="generated recipes" color="#8a9a7b">
+                <Tabs value={activeTab} onChange={setActiveTab} color="#8a9a7b">
                     <Tabs.List justify="space-between">
                         <Tabs.Tab value="generated recipes" leftSection={<Blocks size={16} />} style={{ fontSize: '16px' }}>
                             Generate Recipe
@@ -338,27 +270,36 @@ function RecipePage() {
                                     </Box>
 
                                     <Group gap="xs" mih={300} justify="center" mb="lg" style={{ flexWrap: 'wrap' }}>
-                                        {ingredients.map((ingredient: Ingredient) => {
-                                            const isSelected = selectedIngredients.includes(ingredient.name);
-                                            return (
-                                                <Badge
-                                                    key={ingredient.id}
-                                                    radius="lg"
-                                                    size="xl"
-                                                    onClick={() => toggleIngredient(ingredient.name)}
-                                                    variant={isSelected ? "filled" : "outline"}
-                                                    style={{
-                                                        backgroundColor: isSelected ? "#8a9a7b" : "transparent",
-                                                        color: isSelected ? "white" : "#2d3319",
-                                                        borderColor: "#8a9a7b",
-                                                        cursor: "pointer",
-                                                        transition: "all 0.2s ease",
-                                                    }}
-                                                >
-                                                    <Text size="sm">{ingredient.name}</Text>
-                                                </Badge>
-                                            );
-                                        })}
+                                        {isIngredientsLoading ? (
+                                            <Text size="sm" c="dimmed">Loading your pantry...</Text>
+                                        ) : ingredientsList.length > 0 ? (
+                                            ingredientsList.map((ingredient) => {
+                                                const isSelected = selectedIngredients.includes(ingredient.name);
+                                                return (
+                                                    <Badge
+                                                        key={ingredient.id}
+                                                        radius="lg"
+                                                        size="xl"
+                                                        onClick={() => toggleIngredient(ingredient.name)}
+                                                        variant={isSelected ? "filled" : "outline"}
+                                                        style={{
+                                                            backgroundColor: isSelected ? "#8a9a7b" : "transparent",
+                                                            color: isSelected ? "white" : "#2d3319",
+                                                            borderColor: "#8a9a7b",
+                                                            cursor: "pointer",
+                                                            transition: "all 0.2s ease",
+                                                        }}
+                                                    >
+                                                        <Text size="sm">{ingredient.name}</Text>
+                                                    </Badge>
+                                                );
+                                            })
+                                        ) : (
+                                            <Stack align="center" gap={4}>
+                                                <Text size="sm" c="dimmed">No ingredients found.</Text>
+                                                <Button variant="subtle" size="xs" color="gray">Add some to your pantry</Button>
+                                            </Stack>
+                                        )}
                                     </Group>
 
                                     <Button
@@ -397,7 +338,7 @@ function RecipePage() {
                                 }}
                             >
                                 <Box w={"100%"}>
-                                    {isLoading ? (
+                                    {isInternalLoading ? (
                                         <Text ta="center" c="dimmed" size="lg">
                                             Generating recipes...
                                         </Text>
@@ -589,11 +530,26 @@ function RecipePage() {
                         </Paper>
                     </Tabs.Panel>
                 </Tabs>
+
+                <RecipeActionModal
+                    opened={isActionModalOpen}
+                    onClose={() => setIsActionModalOpen(false)}
+                    recipeToActOn={recipeToActOn}
+                    currentActionType={currentActionType}
+                    isRecipeSaved={isRecipeSaved}
+                    isRecipeFavorite={isRecipeFavorite}
+                    handleSave={handleSave}
+                    handleFavorite={handleFavorite}
+                    handleDelete={handleDelete}
+                    setActiveTab={setActiveTab}
+                />
+
                 <RecipeDetailModal
                     opened={isDetailModalOpen}
                     onClose={() => setIsDetailModalOpen(false)}
                     selectedRecipe={selectedRecipe}
                 />
+
                 <Modal
                     opened={RecipeFormOpened}
                     onClose={() => setRecipeFormOpened(false)}
@@ -610,6 +566,8 @@ function RecipePage() {
                         <TextInput
                             label="Recipe Name"
                             placeholder="Enter the name of the recipe"
+                            value={newRecipe.strMeal}
+                            onChange={(e) => setNewRecipe({ ...newRecipe, strMeal: e.currentTarget.value })}
                         />
                         <Select
                             label="Category"
@@ -630,22 +588,32 @@ function RecipePage() {
                                 'Goat',
                                 'Starter'
                             ]}
+                            value={newRecipe.strCategory}
+                            onChange={(val) => setNewRecipe({ ...newRecipe, strCategory: val || '' })}
                         />
                         <TextInput
                             label="Area"
                             placeholder="Enter the area/cuisine of the recipe"
+                            value={newRecipe.strArea}
+                            onChange={(e) => setNewRecipe({ ...newRecipe, strArea: e.currentTarget.value })}
                         />
                         <TextInput
                             label="Ingredients"
-                            placeholder="Enter ingredients separated by commas"
+                            placeholder="e.g. 2 cups - Flour, 1 tsp - Salt, Eggs"
+                            value={newRecipe.strIngredients}
+                            onChange={(e) => setNewRecipe({ ...newRecipe, strIngredients: e.currentTarget.value })}
                         />
                         <TextInput
                             label="Instructions"
                             placeholder="Enter the cooking instructions"
+                            value={newRecipe.strInstructions}
+                            onChange={(e) => setNewRecipe({ ...newRecipe, strInstructions: e.currentTarget.value })}
                         />
                         <TextInput
                             label="YouTube Link"
                             placeholder="Enter a YouTube link for the recipe (optional)"
+                            value={newRecipe.strYoutube}
+                            onChange={(e) => setNewRecipe({ ...newRecipe, strYoutube: e.currentTarget.value })}
                         />
                         <Button
                             mt="md"
@@ -658,6 +626,37 @@ function RecipePage() {
                                         backgroundColor: '#6b7c5e',
                                     },
                                 },
+                            }}
+                            onClick={async () => {
+                                const ingredientsArray = newRecipe.strIngredients
+                                    .split(',')
+                                    .map(ing => ing.trim())
+                                    .filter(ing => ing !== '');
+
+                                const customRecipe: MealRecipe = {
+                                    idMeal: `custom-${Date.now()}`,
+                                    strMeal: newRecipe.strMeal,
+                                    strCategory: newRecipe.strCategory,
+                                    strArea: newRecipe.strArea,
+                                    strInstructions: newRecipe.strInstructions,
+                                    strYoutube: newRecipe.strYoutube,
+                                    strMealThumb: "https://placehold.co/600x400?text=My+Recipe",
+                                };
+
+                                ingredientsArray.forEach((ingredient, index) => {
+                                    const dashIndex = ingredient.indexOf(' - ');
+                                    if (dashIndex > 0) {
+                                        customRecipe[`strMeasure${index + 1}`] = ingredient.substring(0, dashIndex).trim();
+                                        customRecipe[`strIngredient${index + 1}`] = ingredient.substring(dashIndex + 3).trim();
+                                    } else {
+                                        customRecipe[`strIngredient${index + 1}`] = ingredient;
+                                        customRecipe[`strMeasure${index + 1}`] = '';
+                                    }
+                                });
+
+                                await handleSave(customRecipe);
+                                setRecipeFormOpened(false);
+                                setActiveTab("saved recipes");
                             }}
                         >
                             Add Recipe

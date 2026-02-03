@@ -1,4 +1,4 @@
-import { ActionIcon, Button, Card, Group, Image, Text } from "@mantine/core";
+import { ActionIcon, Button, Card, Flex, Image, Text } from "@mantine/core";
 import { Eye, Heart, Save } from "lucide-react";
 
 interface MealRecipe {
@@ -51,7 +51,23 @@ export const RecipeCard = ({
                 radius="md"
             />
 
-            <Group gap="xs" style={{ position: 'absolute', top: '25px', right: '25px' }}>
+            <Text fw={500} lineClamp={2} style={{ color: "#2d3319" }} mt="md" mb="xs">
+                {recipe.strMeal}
+            </Text>
+
+            <Flex justify="space-between" align={"center"} mt="auto" gap={"sm"}>
+                <Button
+                    w={"100%"}
+                    leftSection={<Eye size={18} />}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onView(recipe.idMeal);
+                    }}
+                    color='#8a9a7b'
+                    style={{ backgroundColor: '#8a9a7b' }}
+                >
+                    View Recipe
+                </Button>
                 {showSaveButton && !isFavorite && (
                     <ActionIcon
                         variant={isSaved ? "filled" : "transparent"}
@@ -84,26 +100,7 @@ export const RecipeCard = ({
                         stroke={isFavorite ? "white" : "#e54854"}
                     />
                 </ActionIcon>
-            </Group>
-
-            <Text fw={500} lineClamp={2} style={{ color: "#2d3319" }} mt="md" mb="xs">
-                {recipe.strMeal}
-            </Text>
-
-            <Group justify="flex-start" mt="auto">
-                <Button
-                    w={"100%"}
-                    leftSection={<Eye size={18} />}
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        onView(recipe.idMeal);
-                    }}
-                    color='#8a9a7b'
-                    style={{ backgroundColor: '#8a9a7b' }}
-                >
-                    View Recipe
-                </Button>
-            </Group>
+            </Flex>
         </Card>
     );
 };
