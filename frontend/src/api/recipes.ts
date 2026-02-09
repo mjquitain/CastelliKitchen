@@ -34,6 +34,9 @@ export const recipeApi = {
     // Toggle Favorite status
     toggleFavorite: (id: string) => api.patch(`/savedrecipes/favorites/${id}`),
 
+    // Update a recipe
+    update: (id: string, payload: any) => api.put(`/savedrecipes/${id}`, payload),
+
     // Delete a recipe
     remove: (id: string) => api.delete(`/savedrecipes/${id}`),
 };

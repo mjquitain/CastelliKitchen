@@ -25,7 +25,8 @@ export const getNotificationMessage = (type, name) => {
         recipe_added: `${name} was added to your recipes`,
         recipe_saved: `${name} was saved`,
         recipe_favorited: `${name} was added to favorites`,
-        recipe_unfavorited: `${name} was removed from favorites and moved to saved recipes`
+        recipe_unfavorited: `${name} was removed from favorites and moved to saved recipes`,
+        recipe_updated: `${name} was updated`
     };
 
     return messages[type] || 'New notification';

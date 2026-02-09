@@ -19,6 +19,7 @@ import {
     Stack,
     Tabs,
     Text,
+    Textarea,
     TextInput,
     Title
 } from "@mantine/core";
@@ -52,7 +53,8 @@ function RecipePage() {
         isLoading: isApiLoading,
         handleSave,
         handleFavorite,
-        handleDelete
+        handleDelete,
+        handleUpdate
     } = useRecipes();
 
     const [selectedIngredients, setSelectedIngredients] = useState<string[]>([]);
@@ -72,6 +74,9 @@ function RecipePage() {
     const [activeTab, setActiveTab] = useState<string | null>("generated recipes");
     const [ingredientsList, setIngredientsList] = useState<Ingredient[]>([]);
     const [isIngredientsLoading, setIsIngredientsLoading] = useState(true);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [editingRecipe, setIsEditingRecipe] = useState<MealRecipe | null>(null);
+    const [editIngredientsInput, setEditIngredientsInput] = useState('');
 
     useEffect(() => {
         const fetchUserIngredients = async () => {
@@ -103,14 +108,42 @@ function RecipePage() {
         fetchUserIngredients();
     }, []);
 
+    useEffect(() => {
+        if (!RecipeFormOpened) {
+            setNewRecipe({
+                strMeal: '',
+                strCategory: '',
+                strArea: '',
+                strInstructions: '',
+                strIngredients: '',
+                strYoutube: '',
+                strMealThumb: ''
+            });
+        }
+    }, [RecipeFormOpened]);
+
     const [newRecipe, setNewRecipe] = useState({
         strMeal: '',
         strCategory: '',
         strArea: '',
         strInstructions: '',
         strIngredients: '',
-        strYoutube: ''
+        strYoutube: '',
+        strMealThumb: ''
     });
+
+    const getValidImageUrl = (url: string): string => {
+        if (!url || url.trim() === '') {
+            return "https://placehold.co/600x400?text=My+Recipe";
+        }
+        const trimmedUrl = url.trim();
+        try {
+            new URL(trimmedUrl);
+            return trimmedUrl;
+        } catch {
+            return "https://placehold.co/600x400?text=My+Recipe";
+        }
+    };
 
     const isRecipeSaved = (id: string) => savedRecipes.some(r => r.idMeal === id);
     const isRecipeFavorite = (id: string) =>
@@ -221,6 +254,33 @@ function RecipePage() {
             : true;
         return matchesSearch && matchesCategory;
     });
+
+    const openEditModal = (recipe: MealRecipe) => {
+        const ingredientsList = Array.from({ length: 20 }, (_, i) => i + 1)
+            .map(i => {
+                const ingredient = recipe[`strIngredient${i}`];
+                const measure = recipe[`strMeasure${i}`];
+                if (ingredient && ingredient.trim() !== "") {
+                    return measure && measure.trim() !== ""
+                        ? `${measure} - ${ingredient}`
+                        : ingredient;
+                }
+                return null;
+            })
+            .filter(Boolean)
+            .join(', ');
+
+        setIsEditingRecipe(recipe);
+        setEditIngredientsInput(ingredientsList);
+        setIsEditModalOpen(true);
+    }
+
+    const handleUpdateRecipe = async (updatedRecipe: MealRecipe) => {
+        await handleUpdate(updatedRecipe);
+        setIsEditModalOpen(false);
+        setIsEditingRecipe(null);
+        setEditIngredientsInput('');
+    }
 
     return (
         <Stack
@@ -434,6 +494,9 @@ function RecipePage() {
                                             isSaved={isRecipeSaved(recipe.idMeal)}
                                             isFavorite={isRecipeFavorite(recipe.idMeal)}
                                             showSaveButton={true}
+                                            isCustom={recipe.isCustom}
+                                            onDelete={() => handleDelete(recipe)}
+                                            onEdit={() => openEditModal(recipe)}
                                         />
                                     ))}
                                 </SimpleGrid>
@@ -550,6 +613,7 @@ function RecipePage() {
                     selectedRecipe={selectedRecipe}
                 />
 
+                {/* Change to ModalsProvider */}
                 <Modal
                     opened={RecipeFormOpened}
                     onClose={() => setRecipeFormOpened(false)}
@@ -564,10 +628,18 @@ function RecipePage() {
                 >
                     <Flex direction="column" gap="sm">
                         <TextInput
+                            label="Image URL (optional)"
+                            placeholder="Enter an image URL for the recipe"
+                            value={newRecipe.strMealThumb}
+                            onChange={(e) => setNewRecipe({ ...newRecipe, strMealThumb: e.currentTarget.value })}
+                            description="Leave empty to use default placeholder image"
+                        />
+                        <TextInput
                             label="Recipe Name"
                             placeholder="Enter the name of the recipe"
                             value={newRecipe.strMeal}
                             onChange={(e) => setNewRecipe({ ...newRecipe, strMeal: e.currentTarget.value })}
+                            withAsterisk
                         />
                         <Select
                             label="Category"
@@ -590,6 +662,7 @@ function RecipePage() {
                             ]}
                             value={newRecipe.strCategory}
                             onChange={(val) => setNewRecipe({ ...newRecipe, strCategory: val || '' })}
+                            withAsterisk
                         />
                         <TextInput
                             label="Area"
@@ -597,17 +670,21 @@ function RecipePage() {
                             value={newRecipe.strArea}
                             onChange={(e) => setNewRecipe({ ...newRecipe, strArea: e.currentTarget.value })}
                         />
-                        <TextInput
+                        <Textarea
                             label="Ingredients"
-                            placeholder="e.g. 2 cups - Flour, 1 tsp - Salt, Eggs"
+                            placeholder="Enter each ingredient on a new line or separate with commas&#10;e.g.&#10;2 cups - Flour&#10;1 tsp - Salt&#10;Eggs"
                             value={newRecipe.strIngredients}
                             onChange={(e) => setNewRecipe({ ...newRecipe, strIngredients: e.currentTarget.value })}
+                            minRows={3}
+                            withAsterisk
                         />
-                        <TextInput
+                        <Textarea
                             label="Instructions"
                             placeholder="Enter the cooking instructions"
                             value={newRecipe.strInstructions}
                             onChange={(e) => setNewRecipe({ ...newRecipe, strInstructions: e.currentTarget.value })}
+                            minRows={4}
+                            withAsterisk
                         />
                         <TextInput
                             label="YouTube Link"
@@ -629,7 +706,7 @@ function RecipePage() {
                             }}
                             onClick={async () => {
                                 const ingredientsArray = newRecipe.strIngredients
-                                    .split(',')
+                                    .split(/[\n,]+/)
                                     .map(ing => ing.trim())
                                     .filter(ing => ing !== '');
 
@@ -640,7 +717,7 @@ function RecipePage() {
                                     strArea: newRecipe.strArea,
                                     strInstructions: newRecipe.strInstructions,
                                     strYoutube: newRecipe.strYoutube,
-                                    strMealThumb: "https://placehold.co/600x400?text=My+Recipe",
+                                    strMealThumb: getValidImageUrl(newRecipe.strMealThumb),
                                 };
 
                                 ingredientsArray.forEach((ingredient, index) => {
@@ -655,11 +732,153 @@ function RecipePage() {
                                 });
 
                                 await handleSave(customRecipe);
+                                setNewRecipe({
+                                    strMeal: '',
+                                    strCategory: '',
+                                    strArea: '',
+                                    strInstructions: '',
+                                    strIngredients: '',
+                                    strYoutube: '',
+                                    strMealThumb: ''
+                                });
                                 setRecipeFormOpened(false);
                                 setActiveTab("saved recipes");
                             }}
                         >
                             Add Recipe
+                        </Button>
+                    </Flex>
+                </Modal>
+
+                <Modal
+                    opened={isEditModalOpen}
+                    onClose={() => setIsEditModalOpen(false)}
+                    title={<Text fw={"500"} size="lg"> Edit Custom Recipe </Text>}
+                    overlayProps={{
+                        backgroundOpacity: 0.55,
+                        blur: 3,
+                    }}
+                    radius={"lg"}
+                    padding={"lg"}
+                    centered
+                >
+                    <Flex direction="column" gap="sm">
+                        <TextInput
+                            label="Image URL (optional)"
+                            placeholder="Enter an image URL for the recipe"
+                            value={editingRecipe?.strMealThumb || ''}
+                            onChange={(e) => setIsEditingRecipe(prev => prev ? { ...prev, strMealThumb: e.target.value } : null)}
+                            description="Leave empty to use default placeholder image"
+                        />
+                        <TextInput
+                            label="Recipe Name"
+                            placeholder="Enter the name of the recipe"
+                            value={editingRecipe?.strMeal || ''}
+                            onChange={(e) => setIsEditingRecipe(prev => prev ? { ...prev, strMeal: e.target.value } : null)}
+                            withAsterisk
+                        />
+                        <Select
+                            label="Category"
+                            placeholder="Sort Recipes"
+                            data={[
+                                'Beef',
+                                'Chicken',
+                                'Vegetarian',
+                                'Vegan',
+                                'Dessert',
+                                'Lamb',
+                                'Miscellaneous',
+                                'Pasta',
+                                'Seafood',
+                                'Side',
+                                'Pork',
+                                'Breakfast',
+                                'Goat',
+                                'Starter'
+                            ]}
+                            value={editingRecipe?.strCategory || ''}
+                            onChange={(val) => setIsEditingRecipe(prev => prev ? { ...prev, strCategory: val || '' } : null)}
+                            withAsterisk
+                        />
+                        <TextInput
+                            label="Area"
+                            placeholder="Enter the area/cuisine of the recipe"
+                            value={editingRecipe?.strArea || ''}
+                            onChange={(e) => setIsEditingRecipe(prev => prev ? { ...prev, strArea: e.target.value } : null)}
+                        />
+                        <Textarea
+                            label="Ingredients"
+                            placeholder="Enter each ingredient on a new line or separate with commas&#10;e.g.&#10;2 cups - Flour&#10;1 tsp - Salt&#10;Eggs"
+                            value={editIngredientsInput}
+                            onChange={(e) => setEditIngredientsInput(e.target.value)}
+                            minRows={3}
+                            withAsterisk
+                        />
+                        <Textarea
+                            label="Instructions"
+                            placeholder="Enter the cooking instructions"
+                            value={editingRecipe?.strInstructions || ''}
+                            onChange={(e) => setIsEditingRecipe(prev => prev ? { ...prev, strInstructions: e.target.value } : null)}
+                            minRows={4}
+                            withAsterisk
+                        />
+                        <TextInput
+                            label="YouTube Link"
+                            placeholder="Enter a YouTube link for the recipe (optional)"
+                            value={editingRecipe?.strYoutube || ''}
+                            onChange={(e) => setIsEditingRecipe(prev => prev ? { ...prev, strYoutube: e.target.value } : null)}
+                        />
+                        <Button
+                            mt="md"
+                            fullWidth
+                            size="md"
+                            styles={{
+                                root: {
+                                    backgroundColor: '#8a9a7b',
+                                    '&:hover': {
+                                        backgroundColor: '#6b7c5e',
+                                    },
+                                },
+                            }}
+                            onClick={async () => {
+                                if (!editingRecipe) return;
+
+                                const ingredientsArray = editIngredientsInput
+                                    .split(/[\n,]+/)
+                                    .map(ing => ing.trim())
+                                    .filter(ing => ing !== '');
+
+                                const updatedRecipe: MealRecipe = {
+                                    ...editingRecipe,
+                                    strMeal: editingRecipe.strMeal,
+                                    strCategory: editingRecipe.strCategory,
+                                    strArea: editingRecipe.strArea,
+                                    strInstructions: editingRecipe.strInstructions,
+                                    strYoutube: editingRecipe.strYoutube,
+                                    strMealThumb: getValidImageUrl(editingRecipe.strMealThumb || ''),
+                                };
+
+                                for (let i = 1; i <= 20; i++) {
+                                    delete updatedRecipe[`strIngredient${i}`];
+                                    delete updatedRecipe[`strMeasure${i}`];
+                                }
+                                delete updatedRecipe['strIngredients'];
+
+                                ingredientsArray.forEach((ingredient, index) => {
+                                    const dashIndex = ingredient.indexOf(' - ');
+                                    if (dashIndex > 0) {
+                                        updatedRecipe[`strMeasure${index + 1}`] = ingredient.substring(0, dashIndex).trim();
+                                        updatedRecipe[`strIngredient${index + 1}`] = ingredient.substring(dashIndex + 3).trim();
+                                    } else {
+                                        updatedRecipe[`strIngredient${index + 1}`] = ingredient;
+                                        updatedRecipe[`strMeasure${index + 1}`] = '';
+                                    }
+                                });
+
+                                await handleUpdateRecipe(updatedRecipe);
+                            }}
+                        >
+                            Update Recipe
                         </Button>
                     </Flex>
                 </Modal>
