@@ -23,7 +23,8 @@ export const useRecipes = () => {
                     strYoutube: r.strYoutube,
                     isFavorite: r.isFavorite,
                     _id: r._id,
-                    apiRecipeId: r.apiRecipeId
+                    apiRecipeId: r.apiRecipeId,
+                    isCustom: String(r.apiRecipeId).startsWith('custom-'),
                 };
 
                 if (r.ingredients && Array.isArray(r.ingredients)) {
@@ -78,15 +79,50 @@ export const useRecipes = () => {
         }
     };
 
-    const handleDelete = async (id: string) => {
-        try {
-            const recipe = savedRecipes.find(r => r.idMeal === id || r._id === id);
-            if (recipe && recipe._id) {
-                await recipeApi.remove(recipe._id);
+    const handleDelete = async (recipe: MealRecipe) => {
+        const targetId = recipe._id;
+        if (!targetId) return;
+
+        if (window.confirm(`Are you sure you want to delete ${recipe.strMeal}?`)) {
+            try {
+                await recipeApi.remove(targetId);
                 await fetchSaved();
+            } catch (err) {
+                console.error("Delete failed", err);
             }
+        }
+    };
+
+    const handleUpdate = async (updatedRecipe: any) => {
+        if (!updatedRecipe.isCustom) {
+            console.error("Cannot edit API-sourced recipes");
+            return;
+        }
+        try {
+            setIsLoading(true);
+
+            const payload = {
+                title: updatedRecipe.strMeal,
+                image: updatedRecipe.strMealThumb,
+                category: updatedRecipe.strCategory,
+                area: updatedRecipe.strArea,
+                instructions: updatedRecipe.strInstructions,
+                ingredients: Object.keys(updatedRecipe)
+                    .filter(key => key.startsWith('strIngredient') && updatedRecipe[key])
+                    .map(key => {
+                        const index = key.replace('strIngredient', '');
+                        return {
+                            ingredient: updatedRecipe[key],
+                            measure: updatedRecipe[`strMeasure${index}`] || ''
+                        };
+                    })
+            };
+            await recipeApi.update(updatedRecipe._id, payload)
+            await fetchSaved();
         } catch (err) {
-            console.error("Delete failed", err);
+            console.error("Update failed", err);
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -99,6 +135,7 @@ export const useRecipes = () => {
         handleDelete,
         fetchSaved,
         savedRecipes,
-        favoriteRecipes
+        favoriteRecipes,
+        handleUpdate
     };
 };

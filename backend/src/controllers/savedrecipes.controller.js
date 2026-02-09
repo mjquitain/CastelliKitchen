@@ -121,5 +121,43 @@ const deleteSavedRecipe = async (req, res) => {
     }
 };
 
-export { deleteSavedRecipe, getFavoriteRecipes, getSavedRecipes, saveRecipe, toggleFavoriteStatus };
+const updateSavedRecipe = async (req, res) => {
+    try {
+        const { title, category, area, image, instructions, strYoutube, ingredients } = req.body;
+
+        const recipe = await SavedRecipe.findOne({ _id: req.params.id, userId: req.user.id });
+
+        if (!recipe) {
+            return res.status(404).json({ message: "Recipe not found." });
+        }
+
+        if (title !== undefined) recipe.title = title;
+        if (category !== undefined) recipe.category = category;
+        if (area !== undefined) recipe.area = area;
+        if (image !== undefined) recipe.image = image;
+        if (instructions !== undefined) recipe.instructions = instructions;
+        if (strYoutube !== undefined) recipe.strYoutube = strYoutube;
+        if (ingredients !== undefined) recipe.ingredients = ingredients;
+
+        await recipe.save();
+
+        try {
+            await createNotification(
+                req.user.id,
+                'recipe_updated',
+                getNotificationMessage('recipe_updated', recipe.title),
+                recipe._id,
+                recipe.title
+            );
+        } catch (notifError) {
+            console.error('Failed to create notification:', notifError);
+        }
+
+        res.status(200).json(recipe);
+    } catch (error) {
+        res.status(500).json({ message: "Error updating recipe.", error });
+    }
+};
+
+export { deleteSavedRecipe, getFavoriteRecipes, getSavedRecipes, saveRecipe, toggleFavoriteStatus, updateSavedRecipe };
 
