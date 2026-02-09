@@ -1,5 +1,5 @@
 import { ActionIcon, Button, Card, Flex, Image, Text } from "@mantine/core";
-import { Eye, Heart, Save } from "lucide-react";
+import { Edit, Eye, Heart, Save, Trash } from "lucide-react";
 
 interface MealRecipe {
     idMeal: string;
@@ -16,6 +16,9 @@ type ActionType = 'save' | 'favorite';
 
 interface RecipeCardProps {
     recipe: MealRecipe;
+    isCustom?: boolean;
+    onEdit?: () => void;
+    onDelete?: () => void;
     onView: (idMeal: string) => void;
     onAction: (recipe: MealRecipe, action: ActionType) => void;
     isSaved: boolean;
@@ -25,6 +28,9 @@ interface RecipeCardProps {
 
 export const RecipeCard = ({
     recipe,
+    isCustom,
+    onEdit,
+    onDelete,
     onView,
     onAction,
     isSaved,
@@ -46,7 +52,7 @@ export const RecipeCard = ({
             <Image
                 src={recipe.strMealThumb}
                 alt={recipe.strMeal}
-                height={160}
+                mah={330}
                 fit="cover"
                 radius="md"
             />
@@ -68,6 +74,16 @@ export const RecipeCard = ({
                 >
                     View Recipe
                 </Button>
+                {isCustom && (
+                    <>
+                        <ActionIcon color="blue" onClick={onEdit}>
+                            <Edit size={18} />
+                        </ActionIcon>
+                        <ActionIcon color="red" onClick={onDelete}>
+                            <Trash size={18} />
+                        </ActionIcon>
+                    </>
+                )}
                 {showSaveButton && !isFavorite && (
                     <ActionIcon
                         variant={isSaved ? "filled" : "transparent"}
