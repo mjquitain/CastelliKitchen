@@ -3,6 +3,7 @@ import { User } from "../models/user.model.js";
 import { Ingredient } from "../models/ingredient.model.js";
 import { IngredientBatch } from "../models/ingredientbatch.model.js";
 import { SavedRecipe } from "../models/savedrecipe.model.js";
+import { bucket } from "../config/firebase.js";
 
 const registerUser = async (req, res) => {
 
@@ -204,8 +205,36 @@ const deleteUser = async (req, res) => {
   }
 };
 
+const uploadProfilePic = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: "No file uploaded" });
+    }
+
+    const userId = req.user.id
+    const fileName = `users/${userId}/profile-${Date.now()}`;
+    const file = bucket.file(fileName);
+
+    await file.save(req.file.buffer, {
+      metadata: {
+        contentType: req.file.mimetype
+      }
+    });
+
+    const imageUrl = `https://storage.googleapis.com/${bucket.name}/${file.name}`;
+
+    await User.findByIdAndUpdate(userId, {
+      profileImage: imageUrl
+    });
+
+    res.json({ imageUrl });
+  } catch(error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 
 export {
-    loginUser, logoutUser, registerUser, getAllUsers, getCurrentUser, getUserById, updateUser, updateUserPassword, deleteUser
+    loginUser, logoutUser, registerUser, getAllUsers, getCurrentUser, getUserById, updateUser, updateUserPassword, deleteUser, uploadProfilePic
 };
 
