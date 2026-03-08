@@ -1,4 +1,5 @@
 
+import { mealdbApi } from '@/api/recipes';
 import { RecipeActionModal } from "@/components/modals/ActionModal";
 import { RecipeDetailModal } from "@/components/modals/RecipeModal";
 import { RecipeCard } from "@/components/RecipeCard";
@@ -9,6 +10,7 @@ import {
     Box,
     Button,
     Divider,
+    FileButton,
     Flex,
     Group,
     Modal,
@@ -77,6 +79,7 @@ function RecipePage() {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [editingRecipe, setIsEditingRecipe] = useState<MealRecipe | null>(null);
     const [editIngredientsInput, setEditIngredientsInput] = useState('');
+    const [isInsertImage, setIsInsertImage] = useState<File | null>(null);
 
     useEffect(() => {
         const fetchUserIngredients = async () => {
@@ -94,9 +97,18 @@ function RecipePage() {
                     ingredients = data.data;
                 }
 
-                const availableIngredients = ingredients.filter(
-                    (ingredient: any) => ingredient.batches && ingredient.batches.length > 0
-                );
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+
+                const availableIngredients = ingredients.filter((ingredient: any) => {
+                    if (!ingredient.batches || ingredient.batches.length === 0) return false;
+                    return ingredient.batches.some((batch: any) => {
+                        if (batch.isUsed || batch.isDeleted) return false;
+                        const expiry = new Date(batch.expiryDate);
+                        expiry.setHours(0, 0, 0, 0);
+                        return expiry >= today;
+                    });
+                });
 
                 setIngredientsList(availableIngredients);
             } catch (error) {
@@ -119,8 +131,15 @@ function RecipePage() {
                 strYoutube: '',
                 strMealThumb: ''
             });
+            setIsInsertImage(null);
         }
     }, [RecipeFormOpened]);
+
+    useEffect(() => {
+        if (!isEditModalOpen) {
+            setIsInsertImage(null);
+        }
+    }, [isEditModalOpen]);
 
     const [newRecipe, setNewRecipe] = useState({
         strMeal: '',
@@ -171,8 +190,8 @@ function RecipePage() {
 
         try {
             const primaryQuery = selectedIngredients[0];
-            const response = await fetch(`https://www.themealdb.com/api/json/v1/1/filter.php?i=${primaryQuery}`);
-            const filterData = await response.json();
+            const response = await mealdbApi.filterByIngredient(primaryQuery);
+            const filterData = response.data;
 
             if (!filterData.meals) {
                 setRecipes([]);
@@ -181,8 +200,8 @@ function RecipePage() {
 
             const detailedRecipes = await Promise.all(
                 filterData.meals.map(async (meal: any) => {
-                    const detailRes = await fetch(`https://www.themealdb.com/api/json/v1/1/lookup.php?i=${meal.idMeal}`);
-                    const detailData = await detailRes.json();
+                    const detailRes = await mealdbApi.lookupById(meal.idMeal);
+                    const detailData = detailRes.data;
                     return detailData.meals ? detailData.meals[0] : null;
                 })
             );
@@ -209,8 +228,8 @@ function RecipePage() {
             let recipe = savedRecipes.find(r => r.idMeal === idMeal) || favoriteRecipes.find(r => r.idMeal === idMeal);
 
             if (!recipe) {
-                const response = await fetch(`https://www.themealdb.com/api/json/v1/1/lookup.php?i=${idMeal}`);
-                const data = await response.json();
+                const response = await mealdbApi.lookupById(idMeal);
+                const data = response.data;
                 if (data.meals && data.meals.length > 0) {
                     recipe = data.meals[0];
                 }
@@ -275,8 +294,8 @@ function RecipePage() {
         setIsEditModalOpen(true);
     }
 
-    const handleUpdateRecipe = async (updatedRecipe: MealRecipe) => {
-        await handleUpdate(updatedRecipe);
+    const handleUpdateRecipe = async (updatedRecipe: MealRecipe, imageFile?: File | null) => {
+        await handleUpdate(updatedRecipe, imageFile);
         setIsEditModalOpen(false);
         setIsEditingRecipe(null);
         setEditIngredientsInput('');
@@ -627,13 +646,26 @@ function RecipePage() {
                     centered
                 >
                     <Flex direction="column" gap="sm">
-                        <TextInput
-                            label="Image URL (optional)"
-                            placeholder="Enter an image URL for the recipe"
-                            value={newRecipe.strMealThumb}
-                            onChange={(e) => setNewRecipe({ ...newRecipe, strMealThumb: e.currentTarget.value })}
-                            description="Leave empty to use default placeholder image"
-                        />
+                        <Stack gap="xs">
+                            <Flex direction="row" gap="sm" align='flex-end' justify="space-between">
+                                <TextInput
+                                    label="Image URL (optional)"
+                                    placeholder="Enter an image URL for the recipe"
+                                    value={newRecipe.strMealThumb}
+                                    onChange={(e) => setNewRecipe({ ...newRecipe, strMealThumb: e.currentTarget.value })}
+                                    description="Leave empty to use default placeholder image"
+                                    style={{ flex: 1 }}
+                                />
+                                <FileButton onChange={setIsInsertImage} accept="image/png,image/jpeg,image/webp">
+                                    {(props) => <Button {...props} size="sm" variant="outline">Upload Image</Button>}
+                                </FileButton>
+                            </Flex>
+                            {isInsertImage && (
+                                <Text size="sm" c="teal" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    ✓ File selected: {isInsertImage.name}
+                                </Text>
+                            )}
+                        </Stack>
                         <TextInput
                             label="Recipe Name"
                             placeholder="Enter the name of the recipe"
@@ -731,7 +763,7 @@ function RecipePage() {
                                     }
                                 });
 
-                                await handleSave(customRecipe);
+                                await handleSave(customRecipe, isInsertImage);
                                 setNewRecipe({
                                     strMeal: '',
                                     strCategory: '',
@@ -763,13 +795,26 @@ function RecipePage() {
                     centered
                 >
                     <Flex direction="column" gap="sm">
-                        <TextInput
-                            label="Image URL (optional)"
-                            placeholder="Enter an image URL for the recipe"
-                            value={editingRecipe?.strMealThumb || ''}
-                            onChange={(e) => setIsEditingRecipe(prev => prev ? { ...prev, strMealThumb: e.target.value } : null)}
-                            description="Leave empty to use default placeholder image"
-                        />
+                        <Stack gap="xs">
+                            <Flex direction="row" gap="sm" align="flex-end" justify="space-between">
+                                <TextInput
+                                    label="Image URL (optional)"
+                                    placeholder="Enter an image URL for the recipe"
+                                    value={editingRecipe?.strMealThumb || ''}
+                                    onChange={(e) => setIsEditingRecipe(prev => prev ? { ...prev, strMealThumb: e.target.value } : null)}
+                                    description="Leave empty to use default placeholder image"
+                                    style={{ flex: 1 }}
+                                />
+                                <FileButton onChange={setIsInsertImage} accept="image/png,image/jpeg,image/webp">
+                                    {(props) => <Button {...props} size="sm" variant="outline">Upload Image</Button>}
+                                </FileButton>
+                            </Flex>
+                            {isInsertImage && (
+                                <Text size="sm" c="teal" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    ✓ File selected: {isInsertImage.name}
+                                </Text>
+                            )}
+                        </Stack>
                         <TextInput
                             label="Recipe Name"
                             placeholder="Enter the name of the recipe"
@@ -875,7 +920,7 @@ function RecipePage() {
                                     }
                                 });
 
-                                await handleUpdateRecipe(updatedRecipe);
+                                await handleUpdateRecipe(updatedRecipe, isInsertImage);
                             }}
                         >
                             Update Recipe

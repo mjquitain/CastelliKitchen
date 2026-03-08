@@ -1,15 +1,28 @@
 import { SavedRecipe } from "../models/savedrecipe.model.js";
+import { deleteFileFromStorage, uploadFileToStorage } from "../utils/fileUpload.js";
 import { createNotification, getNotificationMessage } from "../utils/notificationHelper.js";
 
 const saveRecipe = async (req, res) => {
 
     try {
-        const { apiRecipeId, title, category, isFavorite, image, instructions, area, strYoutube, ingredients } = req.body;
+        let { apiRecipeId, title, category, isFavorite, image, instructions, area, strYoutube, ingredients } = req.body;
+
+        if (typeof ingredients === 'string') {
+            try {
+                ingredients = JSON.parse(ingredients);
+            } catch (error) {
+                return res.status(400).json({ message: "Invalid ingredients format" });
+            }
+        }
 
         const existingRecipe = await SavedRecipe.findOne({ apiRecipeId, userId: req.user.id });
 
         if (existingRecipe) {
             return res.status(409).json({ message: "Recipe already saved.", recipe: existingRecipe });
+        }
+
+        if (req.file) {
+            image = await uploadFileToStorage(req.file, 'recipes');
         }
 
         const savedRecipe = await SavedRecipe.create({
@@ -22,11 +35,11 @@ const saveRecipe = async (req, res) => {
             instructions,
             strYoutube,
             ingredients,
-            isFavorite: isFavorite || false,
+            isFavorite: isFavorite === 'true' || isFavorite === true || false,
         });
 
         try {
-            const notificationType = isFavorite ? 'recipe_favorited' : 'recipe_saved';
+            const notificationType = savedRecipe.isFavorite ? 'recipe_favorited' : 'recipe_saved';
             await createNotification(
                 req.user.id,
                 notificationType,
@@ -41,7 +54,8 @@ const saveRecipe = async (req, res) => {
         res.status(201).json(savedRecipe);
 
     } catch (error) {
-        res.status(500).json({ message: "Error saving recipe.", error });
+        console.error('Error saving recipe:', error);
+        res.status(500).json({ message: "Error saving recipe.", error: error.message });
     }
 };
 
@@ -123,12 +137,32 @@ const deleteSavedRecipe = async (req, res) => {
 
 const updateSavedRecipe = async (req, res) => {
     try {
-        const { title, category, area, image, instructions, strYoutube, ingredients } = req.body;
+        let { title, category, area, image, instructions, strYoutube, ingredients } = req.body;
+
+        if (typeof ingredients === 'string') {
+            try {
+                ingredients = JSON.parse(ingredients);
+            } catch (error) {
+                return res.status(400).json({ message: "Invalid ingredients format" });
+            }
+        }
 
         const recipe = await SavedRecipe.findOne({ _id: req.params.id, userId: req.user.id });
 
         if (!recipe) {
             return res.status(404).json({ message: "Recipe not found." });
+        }
+
+        if (req.file) {
+            if (recipe.image && recipe.image.includes('storage.googleapis.com')) {
+                try {
+                    await deleteFileFromStorage(recipe.image);
+                } catch (deleteError) {
+                    console.error('Error deleting old image:', deleteError);
+                }
+            }
+
+            image = await uploadFileToStorage(req.file, 'recipes');
         }
 
         if (title !== undefined) recipe.title = title;
@@ -155,7 +189,8 @@ const updateSavedRecipe = async (req, res) => {
 
         res.status(200).json(recipe);
     } catch (error) {
-        res.status(500).json({ message: "Error updating recipe.", error });
+        console.error('Error updating recipe:', error);
+        res.status(500).json({ message: "Error updating recipe.", error: error.message });
     }
 };
 

@@ -10,16 +10,23 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as authSignupRouteImport } from './routes/(auth)/signup'
 import { Route as authLoginRouteImport } from './routes/(auth)/login'
 import { Route as protectedRecipeIndexRouteImport } from './routes/(protected)/recipe/index'
 import { Route as protectedProfileIndexRouteImport } from './routes/(protected)/profile/index'
 import { Route as protectedNotificationIndexRouteImport } from './routes/(protected)/notification/index'
 import { Route as protectedIngredientsIndexRouteImport } from './routes/(protected)/ingredients/index'
 import { Route as protectedHomeIndexRouteImport } from './routes/(protected)/home/index'
+import { Route as authAuthCallbackRouteImport } from './routes/(auth)/auth/callback'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const authSignupRoute = authSignupRouteImport.update({
+  id: '/(auth)/signup',
+  path: '/signup',
   getParentRoute: () => rootRouteImport,
 } as any)
 const authLoginRoute = authLoginRouteImport.update({
@@ -54,10 +61,17 @@ const protectedHomeIndexRoute = protectedHomeIndexRouteImport.update({
   path: '/home/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const authAuthCallbackRoute = authAuthCallbackRouteImport.update({
+  id: '/(auth)/auth/callback',
+  path: '/auth/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof authLoginRoute
+  '/signup': typeof authSignupRoute
+  '/auth/callback': typeof authAuthCallbackRoute
   '/home': typeof protectedHomeIndexRoute
   '/ingredients': typeof protectedIngredientsIndexRoute
   '/notification': typeof protectedNotificationIndexRoute
@@ -67,6 +81,8 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof authLoginRoute
+  '/signup': typeof authSignupRoute
+  '/auth/callback': typeof authAuthCallbackRoute
   '/home': typeof protectedHomeIndexRoute
   '/ingredients': typeof protectedIngredientsIndexRoute
   '/notification': typeof protectedNotificationIndexRoute
@@ -77,6 +93,8 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/(auth)/login': typeof authLoginRoute
+  '/(auth)/signup': typeof authSignupRoute
+  '/(auth)/auth/callback': typeof authAuthCallbackRoute
   '/(protected)/home/': typeof protectedHomeIndexRoute
   '/(protected)/ingredients/': typeof protectedIngredientsIndexRoute
   '/(protected)/notification/': typeof protectedNotificationIndexRoute
@@ -88,6 +106,8 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/login'
+    | '/signup'
+    | '/auth/callback'
     | '/home'
     | '/ingredients'
     | '/notification'
@@ -97,6 +117,8 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/login'
+    | '/signup'
+    | '/auth/callback'
     | '/home'
     | '/ingredients'
     | '/notification'
@@ -106,6 +128,8 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/(auth)/login'
+    | '/(auth)/signup'
+    | '/(auth)/auth/callback'
     | '/(protected)/home/'
     | '/(protected)/ingredients/'
     | '/(protected)/notification/'
@@ -116,6 +140,8 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   authLoginRoute: typeof authLoginRoute
+  authSignupRoute: typeof authSignupRoute
+  authAuthCallbackRoute: typeof authAuthCallbackRoute
   protectedHomeIndexRoute: typeof protectedHomeIndexRoute
   protectedIngredientsIndexRoute: typeof protectedIngredientsIndexRoute
   protectedNotificationIndexRoute: typeof protectedNotificationIndexRoute
@@ -130,6 +156,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/(auth)/signup': {
+      id: '/(auth)/signup'
+      path: '/signup'
+      fullPath: '/signup'
+      preLoaderRoute: typeof authSignupRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/(auth)/login': {
@@ -174,12 +207,21 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof protectedHomeIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/(auth)/auth/callback': {
+      id: '/(auth)/auth/callback'
+      path: '/auth/callback'
+      fullPath: '/auth/callback'
+      preLoaderRoute: typeof authAuthCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   authLoginRoute: authLoginRoute,
+  authSignupRoute: authSignupRoute,
+  authAuthCallbackRoute: authAuthCallbackRoute,
   protectedHomeIndexRoute: protectedHomeIndexRoute,
   protectedIngredientsIndexRoute: protectedIngredientsIndexRoute,
   protectedNotificationIndexRoute: protectedNotificationIndexRoute,
