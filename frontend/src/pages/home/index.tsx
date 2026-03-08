@@ -1,7 +1,8 @@
+import { mealdbApi } from '@/api/recipes';
 import { RecipeDetailModal } from "@/components/modals/RecipeModal";
 import { RecipeCard } from "@/components/RecipeCard";
 import { useRecipes } from '@/hooks/useRecipes';
-import api from '@/lib/api';
+import api, { getToken } from '@/lib/api';
 import { type ActionType, type MealRecipe } from '@/pages/recipe';
 import {
     ActionIcon,
@@ -20,6 +21,7 @@ import {
     rem
 } from '@mantine/core';
 import { modals } from "@mantine/modals";
+import { useRouterState } from '@tanstack/react-router';
 import { Blocks, ChefHat, Heart, Leaf, Plus, Search, ShoppingBag, X } from 'lucide-react';
 import { useEffect, useState, type ChangeEvent } from 'react';
 
@@ -40,39 +42,22 @@ function HomePage() {
     } = useRecipes();
 
     const [recipes, setRecipes] = useState<any[]>([]);
-    const [defaultRecipes, setDefaultRecipes] = useState<any[]>([]);
     const [ingredients, setIngredients] = useState<string[]>([]);
     const [currentIngredient, setCurrentIngredient] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const [hasSearched, setHasSearched] = useState(false);
-    const [expiringIngredients, setExpiringIngredients] = useState();
+    const [expiringIngredients, setExpiringIngredients] = useState<string[]>([]);
     const [suggestedRecipes, setSuggestedRecipes] = useState<any[]>([]);
     const [selectedRecipe, setSelectedRecipe] = useState<MealRecipe | null>(null);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-    const [activeTab, setActiveTab] = useState("Suggested Recipe");
     const [userIngredients, setUserIngredients] = useState<any[]>([]);
+    const [totalMealDBCount, setTotalMealDBCount] = useState<number>(0);
+    useRouterState()
+    const isLoggedIn = !!getToken()
+    const [activeTab, setActiveTab] = useState<string>(
+        isLoggedIn ? "Suggested Recipe" : "Generated Recipes"
+    );
 
-    const fetchRecipes = async (): Promise<void> => {
-        try {
-            setIsLoading(true);
-            const response = await fetch("https://www.themealdb.com/api/json/v1/1/filter.php?i=");
-            const data = await response.json();
-
-            if (data.meals) {
-                setDefaultRecipes(data.meals);
-                setRecipes([]);
-            } else {
-                setDefaultRecipes([]);
-                setRecipes([]);
-            }
-        } catch (error) {
-            console.error("Error fetching recipes:", error);
-            setDefaultRecipes([]);
-            setRecipes([]);
-        } finally {
-            setIsLoading(false);
-        }
-    };
 
     const fetchRecipesByIngredients = async (): Promise<void> => {
         setHasSearched(true);
@@ -89,8 +74,8 @@ function HomePage() {
             setIsLoading(true);
 
             const query = ingredients[0].trim().toLowerCase();
-            const response = await fetch(`https://www.themealdb.com/api/json/v1/1/filter.php?i=${query}`);
-            const data = await response.json();
+            const response = await mealdbApi.filterByIngredient(query);
+            const data = response.data;
 
             if (!data.meals) {
                 setRecipes([]);
@@ -100,8 +85,8 @@ function HomePage() {
             if (ingredients.length > 1) {
                 const detailedRecipes = await Promise.all(
                     data.meals.slice(0, 10).map(async (meal: any) => {
-                        const detailRes = await fetch(`https://www.themealdb.com/api/json/v1/1/lookup.php?i=${meal.idMeal}`);
-                        const detailData = await detailRes.json();
+                        const detailRes = await mealdbApi.lookupById(meal.idMeal);
+                        const detailData = detailRes.data;
                         return detailData.meals ? detailData.meals[0] : null;
                     })
                 );
@@ -171,10 +156,8 @@ function HomePage() {
 
             const allMeals: any[] = [];
             for (const ingredient of soonExpiringIngredients) {
-                const response = await fetch(
-                    `https://www.themealdb.com/api/json/v1/1/filter.php?i=${encodeURIComponent(ingredient)}`
-                );
-                const data = await response.json();
+                const response = await mealdbApi.filterByIngredient(ingredient);
+                const data = response.data;
                 if (data.meals) allMeals.push(...data.meals);
             }
 
@@ -192,9 +175,15 @@ function HomePage() {
     };
 
     useEffect(() => {
-        fetchRecipes();
-        fetchSuggestedRecipes();
-        fetchUserIngredients();
+        mealdbApi.search('').then(res => {
+            const meals = res.data?.meals;
+            if (Array.isArray(meals)) setTotalMealDBCount(meals.length);
+        }).catch(() => { });
+
+        if (isLoggedIn) {
+            fetchSuggestedRecipes();
+            fetchUserIngredients();
+        }
     }, []);
 
     const fetchUserIngredients = async () => {
@@ -239,7 +228,8 @@ function HomePage() {
         }
     };
 
-    const recipesFound = defaultRecipes.length;
+    const customRecipesCount = savedRecipes.filter((r: any) => r.isCustom).length;
+    const recipesFound = totalMealDBCount + customRecipesCount;
     const ingredientsAvailable = userIngredients.length;
     const foundSavedRecipes = savedRecipes.length;
 
@@ -254,8 +244,8 @@ function HomePage() {
             let recipe = savedRecipes.find(r => r.idMeal === idMeal) || favoriteRecipes.find(r => r.idMeal === idMeal);
 
             if (!recipe) {
-                const response = await fetch(`https://www.themealdb.com/api/json/v1/1/lookup.php?i=${idMeal}`);
-                const data = await response.json();
+                const response = await mealdbApi.lookupById(idMeal);
+                const data = response.data;
                 if (data.meals && data.meals.length > 0) {
                     recipe = data.meals[0];
                 }
@@ -275,8 +265,8 @@ function HomePage() {
         await handleSave(recipe);
     };
 
-    const handleUnsaveRecipe = async (idMeal: string) => {
-        await handleDelete(idMeal);
+    const handleUnsaveRecipe = async (recipe: MealRecipe) => {
+        await handleDelete(recipe);
     };
 
     const handleFavoriteRecipe = async (recipe: MealRecipe) => {
@@ -287,10 +277,48 @@ function HomePage() {
         await handleFavorite(recipe);
     };
 
-    const isRecipeSaved = (idMeal: string) => savedRecipes.some(r => r.idMeal === idMeal);
-    const isRecipeFavorite = (idMeal: string) => favoriteRecipes.some(r => r.idMeal === idMeal);
+    const isRecipeSaved = (id: string) => savedRecipes.some(r => r.idMeal === id);
+    const isRecipeFavorite = (id: string) =>
+        savedRecipes.some(
+            r => r.idMeal === id && r.isFavorite === true
+        );
 
     const openActionModal = (recipe: MealRecipe, action: ActionType) => {
+        if (!isLoggedIn) {
+            modals.open({
+                title: <Title size="lg">Sign in required</Title>,
+                centered: true,
+                radius: "md",
+                children: (
+                    <Stack gap="md">
+                        <Text size="sm" ta="center" c="dimmed">
+                            You need to be logged in to {action === 'save' ? 'save' : 'favorite'} recipes.
+                        </Text>
+                        <Group justify="center" gap="sm">
+                            <Button
+                                component="a"
+                                href="/login"
+                                color="#8a9a7b"
+                                onClick={() => modals.closeAll()}
+                            >
+                                Sign In
+                            </Button>
+                            <Button
+                                component="a"
+                                href="/signup"
+                                variant="outline"
+                                color="#8a9a7b"
+                                onClick={() => modals.closeAll()}
+                            >
+                                Sign Up
+                            </Button>
+                        </Group>
+                    </Stack>
+                ),
+            });
+            return;
+        }
+
         const isSaved = isRecipeSaved(recipe.idMeal);
         const isFavorited = isRecipeFavorite(recipe.idMeal);
 
@@ -342,9 +370,9 @@ function HomePage() {
 
             onConfirm: () => {
                 if (action === 'save') {
-                    isSaved ? handleUnsaveRecipe(recipe.idMeal) : handleSaveRecipe(recipe);
+                    isSaved ? handleUnsaveRecipe(recipe) : handleSaveRecipe(recipe);
                 } else {
-                    isFavorited ? handleUnfavoriteRecipe(recipe.idMeal) : handleFavoriteRecipe(recipe);
+                    isFavorited ? handleUnfavoriteRecipe(recipe) : handleFavoriteRecipe(recipe);
                 }
             },
         });
@@ -498,10 +526,10 @@ function HomePage() {
                                     fullWidth
                                     onClick={() => {
                                         setIngredients([]);
-                                        setRecipes(defaultRecipes);
+                                        setRecipes([]);
                                         setCurrentIngredient("");
                                         setHasSearched(false);
-                                        setActiveTab("Suggested Recipe");
+                                        setActiveTab(isLoggedIn ? "Suggested Recipe" : "Generated Recipes");
                                     }}
                                 >
                                     Clear Results
@@ -512,14 +540,16 @@ function HomePage() {
                     </Stack>
                 </Paper>
 
-                <Tabs value={activeTab} onTabChange={setActiveTab}>
+                <Tabs value={activeTab} onChange={(val) => val && setActiveTab(val)}>
                     <Tabs.List justify='center' grow>
-                        <Tabs.Tab value="Suggested Recipe" color={"#8a9a7b"}>
-                            <Group justify='center'>
-                                <ShoppingBag size={16} />
-                                <Text style={{ fontSize: '16px', color: '#2d3319' }}>Suggested Recipe</Text>
-                            </Group>
-                        </Tabs.Tab>
+                        {isLoggedIn && (
+                            <Tabs.Tab value="Suggested Recipe" color={"#8a9a7b"}>
+                                <Group justify='center'>
+                                    <ShoppingBag size={16} />
+                                    <Text style={{ fontSize: '16px', color: '#2d3319' }}>Suggested Recipe</Text>
+                                </Group>
+                            </Tabs.Tab>
+                        )}
                         <Tabs.Tab value="Generated Recipes" color={"#8a9a7b"}>
                             <Group justify='center'>
                                 <Blocks size={16} />
@@ -528,49 +558,51 @@ function HomePage() {
                         </Tabs.Tab>
                     </Tabs.List>
 
-                    <Tabs.Panel value="Suggested Recipe" pt="lg">
-                        <Paper
-                            p="xl"
-                            style={{
-                                backgroundColor: 'white',
-                                border: '2px dashed #e8f0e8',
-                                borderRadius: '10px',
-                                textAlign: 'center',
-                                minHeight: '400px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center'
-                            }}
-                        >
-                            {isLoading ? (
-                                <Text ta="center" c="dimmed">
-                                    Loading suggested recipes...
-                                </Text>
-                            ) : suggestedRecipes.length > 0 ? (
-                                <Box w="100%">
-                                    <Text size="md" fw={500} mb="md" style={{ color: "#2d3319" }}>
-                                        Suggested recipes based on expiring ingredients: ({suggestedRecipes.length})
+                    {isLoggedIn && (
+                        <Tabs.Panel value="Suggested Recipe" pt="lg">
+                            <Paper
+                                p="xl"
+                                style={{
+                                    backgroundColor: 'white',
+                                    border: '2px dashed #e8f0e8',
+                                    borderRadius: '10px',
+                                    textAlign: 'center',
+                                    minHeight: '400px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}
+                            >
+                                {isLoading ? (
+                                    <Text ta="center" c="dimmed">
+                                        Loading suggested recipes...
                                     </Text>
-                                    <SimpleGrid cols={5} spacing="md">
-                                        {suggestedRecipes.map((recipe) => (
-                                            <RecipeCard
-                                                key={recipe.idMeal}
-                                                recipe={recipe}
-                                                onView={openRecipeModal}
-                                                onAction={openActionModal}
-                                                isSaved={isRecipeSaved(recipe.idMeal)}
-                                                isFavorite={isRecipeFavorite(recipe.idMeal)}
-                                            />
-                                        ))}
-                                    </SimpleGrid>
-                                </Box>
-                            ) : (
-                                <Text ta="center" c="dimmed" mt="sm">
-                                    No recipes found for your expiring ingredients.
-                                </Text>
-                            )}
-                        </Paper>
-                    </Tabs.Panel>
+                                ) : suggestedRecipes.length > 0 ? (
+                                    <Box w="100%">
+                                        <Text size="md" fw={500} mb="md" style={{ color: "#2d3319" }}>
+                                            Suggested recipes based on expiring ingredients: ({suggestedRecipes.length})
+                                        </Text>
+                                        <SimpleGrid cols={5} spacing="md">
+                                            {suggestedRecipes.map((recipe) => (
+                                                <RecipeCard
+                                                    key={recipe.idMeal}
+                                                    recipe={recipe}
+                                                    onView={openRecipeModal}
+                                                    onAction={openActionModal}
+                                                    isSaved={isRecipeSaved(recipe.idMeal)}
+                                                    isFavorite={isRecipeFavorite(recipe.idMeal)}
+                                                />
+                                            ))}
+                                        </SimpleGrid>
+                                    </Box>
+                                ) : (
+                                    <Text ta="center" c="dimmed" mt="sm">
+                                        No recipes found for your expiring ingredients.
+                                    </Text>
+                                )}
+                            </Paper>
+                        </Tabs.Panel>
+                    )}
 
                     <Tabs.Panel value="Generated Recipes" pt="lg">
                         <Paper
@@ -586,7 +618,7 @@ function HomePage() {
                                 justifyContent: 'flex-start'
                             }}
                         >
-                            <Text ta="center" c="dimmed">
+                            <Box w="100%">
                                 {!hasSearched && ingredients.length === 0 && (
                                     <Text ta="center" c="dimmed">
                                         Generate recipes based on your ingredients!
@@ -624,7 +656,7 @@ function HomePage() {
                                         No recipes found for your selected ingredients.
                                     </Text>
                                 )}
-                            </Text>
+                            </Box>
                         </Paper>
                     </Tabs.Panel>
                 </Tabs>

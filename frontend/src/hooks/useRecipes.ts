@@ -47,16 +47,16 @@ export const useRecipes = () => {
         }
     };
 
-    const handleSave = async (recipe: MealRecipe) => {
+    const handleSave = async (recipe: MealRecipe, imageFile?: File | null) => {
         try {
-            await recipeApi.saveExternal(recipe);
+            await recipeApi.saveExternal(recipe, false, imageFile);
             await fetchSaved();
         } catch (err) {
             console.error("Save failed", err);
         }
     };
 
-    const handleFavorite = async (recipe: any) => {
+    const handleFavorite = async (recipe: any, imageFile?: File | null) => {
         try {
             const apiRecipeId = recipe.apiRecipeId || recipe.idMeal;
 
@@ -65,7 +65,7 @@ export const useRecipes = () => {
             );
 
             if (!existingRecipe) {
-                await recipeApi.saveExternal(recipe, true);
+                await recipeApi.saveExternal(recipe, true, imageFile);
                 await fetchSaved();
             } else {
                 await recipeApi.toggleFavorite(existingRecipe._id);
@@ -93,7 +93,7 @@ export const useRecipes = () => {
         }
     };
 
-    const handleUpdate = async (updatedRecipe: any) => {
+    const handleUpdate = async (updatedRecipe: any, imageFile?: File | null) => {
         if (!updatedRecipe.isCustom) {
             console.error("Cannot edit API-sourced recipes");
             return;
@@ -117,7 +117,7 @@ export const useRecipes = () => {
                         };
                     })
             };
-            await recipeApi.update(updatedRecipe._id, payload)
+            await recipeApi.update(updatedRecipe._id, payload, imageFile)
             await fetchSaved();
         } catch (err) {
             console.error("Update failed", err);

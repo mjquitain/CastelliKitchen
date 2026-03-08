@@ -1,5 +1,13 @@
 import axios from "axios";
 
+export const getToken = () =>
+    localStorage.getItem('token') || sessionStorage.getItem('token');
+
+export const clearToken = () => {
+    localStorage.removeItem('token');
+    sessionStorage.removeItem('token');
+};
+
 const api = axios.create({
     baseURL: 'http://localhost:5000/api/v1',
     withCredentials: true,
@@ -7,7 +15,7 @@ const api = axios.create({
 
 // Attach JWT automatically
 api.interceptors.request.use((config) => {
-    const token = localStorage.getItem("token");
+    const token = getToken();
 
     if (token) {
         config.headers.Authorization = `Bearer ${token}`;
