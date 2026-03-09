@@ -2,7 +2,10 @@ import jwt from "jsonwebtoken";
 import { bucket } from "../config/firebase.js";
 import { Ingredient } from "../models/ingredient.model.js";
 import { IngredientBatch } from "../models/ingredientbatch.model.js";
+import { Notification } from "../models/notification.model.js";
+import { SavedRecipe } from "../models/savedrecipe.model.js";
 import { User } from "../models/user.model.js";
+import { deleteFileFromStorage } from "../utils/fileUpload.js";
 
 const registerUser = async (req, res) => {
 
@@ -192,9 +195,24 @@ const deleteUser = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    // delete dependent data
-    await IngredientBatch.deleteMany({ userId });
-    await Ingredient.deleteMany({ userId });
+    // firebase
+    const prefixes = [`users/${userId}/`, `recipes/${userId}/`];
+    for (const prefix of prefixes) {
+      try {
+        const [files] = await bucket.getFiles({ prefix });
+        await Promise.all(files.map(f => f.delete()));
+      } catch (storageError) {
+        console.error(`Error deleting storage files under ${prefix}:`, storageError);
+      }
+    }
+
+    // mongodb
+    await Promise.all([
+      IngredientBatch.deleteMany({ userId }),
+      Ingredient.deleteMany({ userId }),
+      SavedRecipe.deleteMany({ userId }),
+      Notification.deleteMany({ userId }),
+    ]);
 
     const user = await User.findByIdAndDelete(userId);
 
@@ -214,7 +232,17 @@ const uploadProfilePic = async (req, res) => {
       return res.status(400).json({ message: "No file uploaded" });
     }
 
-    const userId = req.user.id
+    const userId = req.user.id;
+
+    const existingUser = await User.findById(userId).select('avatar');
+    if (existingUser?.avatar && existingUser.avatar.includes('storage.googleapis.com')) {
+      try {
+        await deleteFileFromStorage(existingUser.avatar);
+      } catch (deleteError) {
+        console.error('Error deleting old avatar:', deleteError);
+      }
+    }
+
     const fileName = `users/${userId}/profile-${Date.now()}`;
     const file = bucket.file(fileName);
 
