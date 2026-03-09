@@ -17,6 +17,11 @@ const userSchema = new Schema(
         googleId: { type: String, unique: true, sparse: true },
         authProvider: { type: String, enum: ['local', 'google'], default: 'local' },
         avatar: { type: String },
+        resetPasswordToken: { type: String },
+        resetPasswordExpires: { type: Date },
+        emailVerified: { type: Boolean, default: false },
+        emailVerificationToken: { type: String },
+        emailVerificationExpires: { type: Date },
     },
     { timestamps: true }
 )

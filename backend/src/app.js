@@ -1,8 +1,8 @@
 import cors from "cors";
 import 'dotenv/config';
 import express from "express";
-import passport from './config/passport.js';
 import helmet from "helmet";
+import passport from './config/passport.js';
 
 const app = express();
 
@@ -12,13 +12,13 @@ if (process.env.NODE_ENV === "production") {
         helmet({
             contentSecurityPolicy: {
                 directives: {
-                defaultSrc: ["'self'"],
-                imgSrc: [
-                    "'self'",
-                    "https://firebasestorage.googleapis.com"
-                ],
-                scriptSrc: ["'self'"],
-                objectSrc: ["'none'"]
+                    defaultSrc: ["'self'"],
+                    imgSrc: [
+                        "'self'",
+                        "https://firebasestorage.googleapis.com"
+                    ],
+                    scriptSrc: ["'self'"],
+                    objectSrc: ["'none'"]
                 }
             },
             frameguard: { action: "deny" },

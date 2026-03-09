@@ -1,4 +1,6 @@
+import crypto from "crypto";
 import jwt from "jsonwebtoken";
+import nodemailer from "nodemailer";
 import { bucket } from "../config/firebase.js";
 import { Ingredient } from "../models/ingredient.model.js";
 import { IngredientBatch } from "../models/ingredientbatch.model.js";
@@ -17,6 +19,24 @@ const registerUser = async (req, res) => {
       return res.status(400).json({ message: "All fields are required." });
     }
 
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ message: "Please enter a valid email address." });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ message: "Password must be at least 6 characters long." });
+    }
+    if (!/[A-Z]/.test(password)) {
+      return res.status(400).json({ message: "Password must contain at least one uppercase letter." });
+    }
+    if (!/[a-z]/.test(password)) {
+      return res.status(400).json({ message: "Password must contain at least one lowercase letter." });
+    }
+    if (!/[^A-Za-z0-9]/.test(password)) {
+      return res.status(400).json({ message: "Password must contain at least one special character." });
+    }
+
     // Check for existing user
     const existingUser = await User.findOne({ email: email.toLowerCase() });
     if (existingUser) {
@@ -33,7 +53,35 @@ const registerUser = async (req, res) => {
       authProvider: 'local',
     });
 
-    res.status(201).json({ message: "User registered successfully", userID: newUser._id, username: newUser.username });
+    // verification email
+    const verificationToken = crypto.randomBytes(32).toString("hex");
+    newUser.emailVerificationToken = verificationToken;
+    newUser.emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+    await newUser.save({ validateBeforeSave: false });
+
+    const frontendURL = process.env.FRONTEND_URL || "http://localhost:3000";
+    const verifyURL = `${frontendURL}/verify-email?token=${verificationToken}`;
+
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: Number(process.env.SMTP_PORT) || 587,
+      secure: false,
+      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+    });
+
+    await transporter.sendMail({
+      from: `"Castelli Kitchen" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
+      to: newUser.email,
+      subject: "Verify your email address",
+      html: `
+        <p>Hi ${newUser.firstname},</p>
+        <p>Thanks for signing up! Please verify your email address by clicking the link below. This link expires in 24 hours.</p>
+        <p><a href="${verifyURL}">${verifyURL}</a></p>
+        <p>If you did not create an account, please ignore this email.</p>
+      `,
+    });
+
+    res.status(201).json({ message: "Registration successful. Please check your email to verify your account.", emailVerificationRequired: true });
 
   } catch (error) {
     console.error("Registration error:", error);
@@ -50,6 +98,13 @@ const loginUser = async (req, res) => {
     });
 
     if (!user) return res.status(404).json({ message: "User not found" });
+
+    if (user.authProvider === 'local' && !user.emailVerified) {
+      return res.status(403).json({
+        message: "Please verify your email before logging in. Check your inbox for a verification link.",
+        emailNotVerified: true,
+      });
+    }
 
     // Compare passwords
     const isMatch = await user.comparePassword(password);
@@ -266,6 +321,165 @@ const uploadProfilePic = async (req, res) => {
   }
 };
 
+const verifyEmail = async (req, res) => {
+  try {
+    const { token } = req.body;
+    if (!token) {
+      return res.status(400).json({ message: "Verification token is required." });
+    }
 
-export { deleteUser, getAllUsers, getCurrentUser, getUserById, loginUser, logoutUser, registerUser, updateUser, updateUserPassword, uploadProfilePic };
+    const user = await User.findOne({
+      emailVerificationToken: token,
+      emailVerificationExpires: { $gt: new Date() },
+    });
+
+    if (!user) {
+      return res.status(400).json({ message: "Verification link is invalid or has expired." });
+    }
+
+    user.emailVerified = true;
+    user.emailVerificationToken = undefined;
+    user.emailVerificationExpires = undefined;
+    await user.save({ validateBeforeSave: false });
+
+    res.status(200).json({ message: "Email verified successfully. You can now log in." });
+  } catch (error) {
+    console.error("Email verification error:", error);
+    res.status(500).json({ message: "Error verifying email." });
+  }
+};
+
+const resendVerification = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ message: "Email is required." });
+    }
+
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!user || user.authProvider !== 'local' || user.emailVerified) {
+      return res.status(200).json({ message: "If that email exists and is unverified, a new link has been sent." });
+    }
+
+    const token = crypto.randomBytes(32).toString("hex");
+    user.emailVerificationToken = token;
+    user.emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    await user.save({ validateBeforeSave: false });
+
+    const frontendURL = process.env.FRONTEND_URL || "http://localhost:3000";
+    const verifyURL = `${frontendURL}/verify-email?token=${token}`;
+
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: Number(process.env.SMTP_PORT) || 587,
+      secure: false,
+      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+    });
+
+    await transporter.sendMail({
+      from: `"Castelli Kitchen" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
+      to: user.email,
+      subject: "Verify your email address",
+      html: `
+        <p>Hi ${user.firstname},</p>
+        <p>Here is your new email verification link. It expires in 24 hours.</p>
+        <p><a href="${verifyURL}">${verifyURL}</a></p>
+      `,
+    });
+
+    res.status(200).json({ message: "If that email exists and is unverified, a new link has been sent." });
+  } catch (error) {
+    console.error("Resend verification error:", error);
+    res.status(500).json({ message: "Error sending verification email." });
+  }
+};
+
+const forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ message: "Email is required." });
+    }
+
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!user) {
+      return res.status(200).json({ message: "If that email exists, a reset link has been sent." });
+    }
+
+    if (user.authProvider === 'google') {
+      return res.status(400).json({ message: "This account uses Google sign-in. Password reset is not available." });
+    }
+
+    const token = crypto.randomBytes(32).toString("hex");
+    user.resetPasswordToken = token;
+    user.resetPasswordExpires = new Date(Date.now() + 60 * 60 * 1000);
+    await user.save({ validateBeforeSave: false });
+
+    const frontendURL = process.env.FRONTEND_URL || "http://localhost:3000";
+    const resetURL = `${frontendURL}/reset-password?token=${token}`;
+
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: Number(process.env.SMTP_PORT) || 587,
+      secure: false,
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
+    });
+
+    await transporter.sendMail({
+      from: `"Castelli Kitchen" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
+      to: user.email,
+      subject: "Reset your password",
+      html: `
+        <p>Hi ${user.firstname},</p>
+        <p>You requested a password reset. Click the link below to set a new password. This link expires in 1 hour.</p>
+        <p><a href="${resetURL}">${resetURL}</a></p>
+        <p>If you did not request this, please ignore this email.</p>
+      `,
+    });
+
+    res.status(200).json({ message: "If that email exists, a reset link has been sent." });
+  } catch (error) {
+    console.error("Forgot password error:", error);
+    res.status(500).json({ message: "Error sending reset email." });
+  }
+};
+
+const resetPassword = async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+
+    if (!token || !newPassword) {
+      return res.status(400).json({ message: "Token and new password are required." });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ message: "Password must be at least 6 characters long." });
+    }
+
+    const user = await User.findOne({
+      resetPasswordToken: token,
+      resetPasswordExpires: { $gt: new Date() },
+    });
+
+    if (!user) {
+      return res.status(400).json({ message: "Password reset token is invalid or has expired." });
+    }
+
+    user.password = newPassword;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+    await user.save();
+
+    res.status(200).json({ message: "Password has been reset successfully." });
+  } catch (error) {
+    console.error("Reset password error:", error);
+    res.status(500).json({ message: "Error resetting password." });
+  }
+};
+
+
+export { deleteUser, forgotPassword, getAllUsers, getCurrentUser, getUserById, loginUser, logoutUser, registerUser, resendVerification, resetPassword, updateUser, updateUserPassword, uploadProfilePic, verifyEmail };
 
