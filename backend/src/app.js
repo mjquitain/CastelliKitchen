@@ -6,37 +6,37 @@ import helmet from "helmet";
 
 const app = express();
 
-// if (process.env.NODE_ENV === "production") {
-//     // production
-//     app.use(
-//         helmet({
-//             contentSecurityPolicy: {
-//                 directives: {
-//                 defaultSrc: ["'self'"],
-//                 imgSrc: [
-//                     "'self'",
-//                     "https://firebasestorage.googleapis.com"
-//                 ],
-//                 scriptSrc: ["'self'"],
-//                 objectSrc: ["'none'"]
-//                 }
-//             },
-//             frameguard: { action: "deny" },
-//             referrerPolicy: { policy: "no-referrer" },
-//             xssFilter: true,
-//             noSniff: true
-//         })
-//     );
-// } else {
-//     // dev
-//     app.use(
-//         helmet({
-//             contentSecurityPolicy: false, 
-//             xssFilter: true,
-//             noSniff: true
-//         })
-//     );
-// }
+if (process.env.NODE_ENV === "production") {
+    // production
+    app.use(
+        helmet({
+            contentSecurityPolicy: {
+                directives: {
+                defaultSrc: ["'self'"],
+                imgSrc: [
+                    "'self'",
+                    "https://firebasestorage.googleapis.com"
+                ],
+                scriptSrc: ["'self'"],
+                objectSrc: ["'none'"]
+                }
+            },
+            frameguard: { action: "deny" },
+            referrerPolicy: { policy: "no-referrer" },
+            xssFilter: true,
+            noSniff: true
+        })
+    );
+} else {
+    // dev
+    app.use(
+        helmet({
+            contentSecurityPolicy: false, 
+            xssFilter: true,
+            noSniff: true
+        })
+    );
+}
 
 app.use(cors({
     origin: "http://localhost:3000",
