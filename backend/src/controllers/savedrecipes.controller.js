@@ -22,7 +22,7 @@ const saveRecipe = async (req, res) => {
         }
 
         if (req.file) {
-            image = await uploadFileToStorage(req.file, 'recipes');
+            image = await uploadFileToStorage(req.file, `recipes/${req.user.id}`);
         }
 
         const savedRecipe = await SavedRecipe.create({
@@ -129,6 +129,15 @@ const deleteSavedRecipe = async (req, res) => {
         if (!deletedRecipe) {
             return res.status(404).json({ message: "Recipe not found." });
         }
+
+        if (deletedRecipe.image && deletedRecipe.image.includes('storage.googleapis.com')) {
+            try {
+                await deleteFileFromStorage(deletedRecipe.image);
+            } catch (deleteError) {
+                console.error('Error deleting recipe image:', deleteError);
+            }
+        }
+
         res.status(200).json({ message: "Recipe deleted successfully." });
     } catch (error) {
         res.status(500).json({ message: "Error deleting recipe.", error });
@@ -162,7 +171,7 @@ const updateSavedRecipe = async (req, res) => {
                 }
             }
 
-            image = await uploadFileToStorage(req.file, 'recipes');
+            image = await uploadFileToStorage(req.file, `recipes/${req.user.id}`);
         }
 
         if (title !== undefined) recipe.title = title;

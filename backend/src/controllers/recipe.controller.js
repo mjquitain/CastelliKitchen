@@ -1,21 +1,31 @@
+import { bucket } from "../config/firebase.js";
 import { Recipe } from "../models/recipe.model.js";
 import { deleteFileFromStorage, uploadFileToStorage } from "../utils/fileUpload.js";
 
 const addRecipe = async (req, res) => {
     try {
-        let imageUrl = req.body.imageUrl || null;
+        let imageUrl = null;
 
         if (req.file) {
-            imageUrl = await uploadFileToStorage(req.file, 'recipes');
+            const userId = req.user.id;
+            const fileName = `recipes/${userId}/recipe-${Date.now()}`;
+            const file = bucket.file(fileName);
+
+            await file.save(req.file.buffer, {
+                metadata: { contentType: req.file.mimetype }
+            });
+
+            await file.makePublic();
+            imageUrl = `https://storage.googleapis.com/${bucket.name}/${file.name}`;
         }
 
         const recipeData = {
             ...req.body,
-            imageUrl,
+            ...(imageUrl && { imageUrl }),
             owner: req.user.id
         };
-
         const recipe = await Recipe.create(recipeData);
+
         res.status(201).json(recipe);
     } catch (error) {
         console.error('Error adding recipe:', error);
@@ -43,7 +53,7 @@ const updateRecipe = async (req, res) => {
         if (req.file) {
             const oldRecipe = await Recipe.findById(req.params.id);
 
-            imageUrl = await uploadFileToStorage(req.file, 'recipes');
+            imageUrl = await uploadFileToStorage(req.file, `recipes/${req.user.id}`);
 
             if (oldRecipe?.imageUrl && oldRecipe.imageUrl.includes('storage.googleapis.com')) {
                 try {
