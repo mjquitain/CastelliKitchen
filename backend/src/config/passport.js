@@ -32,6 +32,7 @@ passport.use(
                     user.googleId = profile.id;
                     user.authProvider = 'google';
                     user.avatar = profile.photos[0]?.value;
+                    user.emailVerified = true;
                     await user.save();
                     return done(null, user);
                 }
@@ -46,6 +47,7 @@ passport.use(
                     username: profile.emails[0].value.split('@')[0],
                     authProvider: 'google',
                     avatar: profile.photos[0]?.value,
+                    emailVerified: true,
                 });
 
                 done(null, newUser);

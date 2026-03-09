@@ -1,4 +1,4 @@
-import { useLogin } from '@/hooks/useAuth';
+import { useLogin, useResendVerification } from '@/hooks/useAuth';
 import { Anchor, Box, Button, Checkbox, Container, Divider, Flex, Paper, PasswordInput, Text, TextInput, Title } from '@mantine/core';
 import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
@@ -10,10 +10,13 @@ function LoginPage() {
     const [password, setPassword] = useState('');
     const [emailError, setEmailError] = useState('');
     const [rememberMe, setRememberMe] = useState(false);
+    const [emailNotVerified, setEmailNotVerified] = useState(false);
+    const [resendSent, setResendSent] = useState(false);
 
     const navigate = useNavigate();
 
     const { mutate: login, isPending, error: apiError } = useLogin();
+    const { mutate: resend, isPending: isResending } = useResendVerification();
 
     const handleSubmit = async (e: { preventDefault: () => void; }) => {
         e.preventDefault();
@@ -22,9 +25,16 @@ function LoginPage() {
             setEmailError('Please enter a valid email address (e.g., user@domain.com)');
             return;
         }
+        setEmailNotVerified(false);
+        setResendSent(false);
         login({ email, password, rememberMe }, {
             onSuccess: () => {
                 navigate({ to: '/home' });
+            },
+            onError: (err: any) => {
+                if (err?.response?.data?.emailNotVerified) {
+                    setEmailNotVerified(true);
+                }
             }
         });
     };
@@ -71,10 +81,46 @@ function LoginPage() {
                         Reduce food waste, one recipe at a time 🍳
                     </Text>
 
-                    {apiError && (
+                    {apiError && !emailNotVerified && (
                         <Text color="red" size="sm" ta="center" mb="md">
                             {(apiError as any).response?.data?.message || "Login failed"}
                         </Text>
+                    )}
+
+                    {emailNotVerified && (
+                        <Box
+                            mb="md"
+                            p="sm"
+                            style={{
+                                backgroundColor: '#fff8e1',
+                                borderRadius: '8px',
+                                border: '1px solid #ffe082',
+                                textAlign: 'center',
+                            }}
+                        >
+                            <Text size="sm" mb="xs" style={{ color: '#5a4000' }}>
+                                Your email address has not been verified. Please check your inbox.
+                            </Text>
+                            {resendSent ? (
+                                <Text size="sm" style={{ color: '#2d7a2d' }}>
+                                    Verification email resent! Check your inbox.
+                                </Text>
+                            ) : (
+                                <Button
+                                    size="xs"
+                                    variant="light"
+                                    loading={isResending}
+                                    style={{ backgroundColor: '#fff3cd', color: '#5a4000', border: '1px solid #ffe082' }}
+                                    onClick={() =>
+                                        resend(email, {
+                                            onSuccess: () => setResendSent(true),
+                                        })
+                                    }
+                                >
+                                    Resend verification email
+                                </Button>
+                            )}
+                        </Box>
                     )}
 
                     <form onSubmit={handleSubmit}>
@@ -135,9 +181,11 @@ function LoginPage() {
                             />
 
                             <Anchor
+                                component="button"
                                 type="button"
                                 size="sm"
                                 style={{ color: '#97A97C', fontWeight: 500 }}
+                                onClick={() => navigate({ to: '/forgot-password' })}
                             >
                                 Forgot Password?
                             </Anchor>

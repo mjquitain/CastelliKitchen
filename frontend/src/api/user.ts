@@ -16,3 +16,13 @@ export const uploadAvatar = (file: File) => {
 
 export const logoutRequest = (email: string) => api.post('/users/logout', { email });
 export const deleteAccount = () => api.delete('/users/me/profile');
+export const changePassword = (data: { currentPassword: string; newPassword: string }) =>
+    api.patch('/users/me/profile/password', data);
+export const forgotPassword = (email: string) =>
+    api.post('/users/forgot-password', { email });
+export const resetPassword = (data: { token: string; newPassword: string }) =>
+    api.post('/users/reset-password', data);
+export const verifyEmail = (token: string) =>
+    api.post('/users/verify-email', { token });
+export const resendVerification = (email: string) =>
+    api.post('/users/resend-verification', { email });

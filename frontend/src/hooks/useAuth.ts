@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { deleteAccount, getProfile, loginRequest, registerRequest, updateProfile, uploadAvatar } from '../api/user';
+import { changePassword, deleteAccount, forgotPassword, getProfile, loginRequest, registerRequest, resendVerification, resetPassword, updateProfile, uploadAvatar, verifyEmail } from '../api/user';
 import { getToken } from '../lib/api';
 
 export const useLogin = () => {
@@ -56,6 +56,10 @@ export const useProfile = () => {
         mutationFn: deleteAccount,
     });
 
+    const passwordMutation = useMutation({
+        mutationFn: changePassword,
+    });
+
     return {
         ...query,
         updateProfile: mutation.mutate,
@@ -65,6 +69,33 @@ export const useProfile = () => {
         isUploadingAvatar: avatarMutation.isPending,
         deleteAccount: deleteMutation.mutate,
         isDeletingAccount: deleteMutation.isPending,
+        changePassword: passwordMutation.mutate,
+        isChangingPassword: passwordMutation.isPending,
+        changePasswordError: passwordMutation.error,
     };
+};
+
+export const useForgotPassword = () => {
+    return useMutation({
+        mutationFn: (email: string) => forgotPassword(email),
+    });
+};
+
+export const useResetPassword = () => {
+    return useMutation({
+        mutationFn: (data: { token: string; newPassword: string }) => resetPassword(data),
+    });
+};
+
+export const useVerifyEmail = () => {
+    return useMutation({
+        mutationFn: (token: string) => verifyEmail(token),
+    });
+};
+
+export const useResendVerification = () => {
+    return useMutation({
+        mutationFn: (email: string) => resendVerification(email),
+    });
 };
 

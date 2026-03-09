@@ -80,6 +80,8 @@ function RecipePage() {
     const [editingRecipe, setIsEditingRecipe] = useState<MealRecipe | null>(null);
     const [editIngredientsInput, setEditIngredientsInput] = useState('');
     const [isInsertImage, setIsInsertImage] = useState<File | null>(null);
+    const [recipeFormErrors, setRecipeFormErrors] = useState<Record<string, string>>({});
+    const [editRecipeFormErrors, setEditRecipeFormErrors] = useState<Record<string, string>>({});
 
     useEffect(() => {
         const fetchUserIngredients = async () => {
@@ -132,12 +134,14 @@ function RecipePage() {
                 strMealThumb: ''
             });
             setIsInsertImage(null);
+            setRecipeFormErrors({});
         }
     }, [RecipeFormOpened]);
 
     useEffect(() => {
         if (!isEditModalOpen) {
             setIsInsertImage(null);
+            setEditRecipeFormErrors({});
         }
     }, [isEditModalOpen]);
 
@@ -670,8 +674,9 @@ function RecipePage() {
                             label="Recipe Name"
                             placeholder="Enter the name of the recipe"
                             value={newRecipe.strMeal}
-                            onChange={(e) => setNewRecipe({ ...newRecipe, strMeal: e.currentTarget.value })}
+                            onChange={(e) => { setNewRecipe({ ...newRecipe, strMeal: e.currentTarget.value }); if (recipeFormErrors.strMeal) setRecipeFormErrors(prev => ({ ...prev, strMeal: '' })); }}
                             withAsterisk
+                            error={recipeFormErrors.strMeal}
                         />
                         <Select
                             label="Category"
@@ -693,8 +698,9 @@ function RecipePage() {
                                 'Starter'
                             ]}
                             value={newRecipe.strCategory}
-                            onChange={(val) => setNewRecipe({ ...newRecipe, strCategory: val || '' })}
+                            onChange={(val) => { setNewRecipe({ ...newRecipe, strCategory: val || '' }); if (recipeFormErrors.strCategory) setRecipeFormErrors(prev => ({ ...prev, strCategory: '' })); }}
                             withAsterisk
+                            error={recipeFormErrors.strCategory}
                         />
                         <TextInput
                             label="Area"
@@ -706,17 +712,19 @@ function RecipePage() {
                             label="Ingredients"
                             placeholder="Enter each ingredient on a new line or separate with commas&#10;e.g.&#10;2 cups - Flour&#10;1 tsp - Salt&#10;Eggs"
                             value={newRecipe.strIngredients}
-                            onChange={(e) => setNewRecipe({ ...newRecipe, strIngredients: e.currentTarget.value })}
+                            onChange={(e) => { setNewRecipe({ ...newRecipe, strIngredients: e.currentTarget.value }); if (recipeFormErrors.strIngredients) setRecipeFormErrors(prev => ({ ...prev, strIngredients: '' })); }}
                             minRows={3}
                             withAsterisk
+                            error={recipeFormErrors.strIngredients}
                         />
                         <Textarea
                             label="Instructions"
                             placeholder="Enter the cooking instructions"
                             value={newRecipe.strInstructions}
-                            onChange={(e) => setNewRecipe({ ...newRecipe, strInstructions: e.currentTarget.value })}
+                            onChange={(e) => { setNewRecipe({ ...newRecipe, strInstructions: e.currentTarget.value }); if (recipeFormErrors.strInstructions) setRecipeFormErrors(prev => ({ ...prev, strInstructions: '' })); }}
                             minRows={4}
                             withAsterisk
+                            error={recipeFormErrors.strInstructions}
                         />
                         <TextInput
                             label="YouTube Link"
@@ -737,6 +745,17 @@ function RecipePage() {
                                 },
                             }}
                             onClick={async () => {
+                                const errors: Record<string, string> = {};
+                                if (!newRecipe.strMeal.trim()) errors.strMeal = 'Recipe name is required';
+                                if (!newRecipe.strCategory) errors.strCategory = 'Category is required';
+                                if (!newRecipe.strIngredients.trim()) errors.strIngredients = 'Ingredients are required';
+                                if (!newRecipe.strInstructions.trim()) errors.strInstructions = 'Instructions are required';
+                                if (Object.keys(errors).length > 0) {
+                                    setRecipeFormErrors(errors);
+                                    return;
+                                }
+                                setRecipeFormErrors({});
+
                                 const ingredientsArray = newRecipe.strIngredients
                                     .split(/[\n,]+/)
                                     .map(ing => ing.trim())
@@ -819,8 +838,9 @@ function RecipePage() {
                             label="Recipe Name"
                             placeholder="Enter the name of the recipe"
                             value={editingRecipe?.strMeal || ''}
-                            onChange={(e) => setIsEditingRecipe(prev => prev ? { ...prev, strMeal: e.target.value } : null)}
+                            onChange={(e) => { setIsEditingRecipe(prev => prev ? { ...prev, strMeal: e.target.value } : null); if (editRecipeFormErrors.strMeal) setEditRecipeFormErrors(prev => ({ ...prev, strMeal: '' })); }}
                             withAsterisk
+                            error={editRecipeFormErrors.strMeal}
                         />
                         <Select
                             label="Category"
@@ -842,8 +862,9 @@ function RecipePage() {
                                 'Starter'
                             ]}
                             value={editingRecipe?.strCategory || ''}
-                            onChange={(val) => setIsEditingRecipe(prev => prev ? { ...prev, strCategory: val || '' } : null)}
+                            onChange={(val) => { setIsEditingRecipe(prev => prev ? { ...prev, strCategory: val || '' } : null); if (editRecipeFormErrors.strCategory) setEditRecipeFormErrors(prev => ({ ...prev, strCategory: '' })); }}
                             withAsterisk
+                            error={editRecipeFormErrors.strCategory}
                         />
                         <TextInput
                             label="Area"
@@ -855,17 +876,19 @@ function RecipePage() {
                             label="Ingredients"
                             placeholder="Enter each ingredient on a new line or separate with commas&#10;e.g.&#10;2 cups - Flour&#10;1 tsp - Salt&#10;Eggs"
                             value={editIngredientsInput}
-                            onChange={(e) => setEditIngredientsInput(e.target.value)}
+                            onChange={(e) => { setEditIngredientsInput(e.target.value); if (editRecipeFormErrors.strIngredients) setEditRecipeFormErrors(prev => ({ ...prev, strIngredients: '' })); }}
                             minRows={3}
                             withAsterisk
+                            error={editRecipeFormErrors.strIngredients}
                         />
                         <Textarea
                             label="Instructions"
                             placeholder="Enter the cooking instructions"
                             value={editingRecipe?.strInstructions || ''}
-                            onChange={(e) => setIsEditingRecipe(prev => prev ? { ...prev, strInstructions: e.target.value } : null)}
+                            onChange={(e) => { setIsEditingRecipe(prev => prev ? { ...prev, strInstructions: e.target.value } : null); if (editRecipeFormErrors.strInstructions) setEditRecipeFormErrors(prev => ({ ...prev, strInstructions: '' })); }}
                             minRows={4}
                             withAsterisk
+                            error={editRecipeFormErrors.strInstructions}
                         />
                         <TextInput
                             label="YouTube Link"
@@ -887,6 +910,17 @@ function RecipePage() {
                             }}
                             onClick={async () => {
                                 if (!editingRecipe) return;
+
+                                const errors: Record<string, string> = {};
+                                if (!editingRecipe.strMeal.trim()) errors.strMeal = 'Recipe name is required';
+                                if (!editingRecipe.strCategory) errors.strCategory = 'Category is required';
+                                if (!editIngredientsInput.trim()) errors.strIngredients = 'Ingredients are required';
+                                if (!editingRecipe.strInstructions.trim()) errors.strInstructions = 'Instructions are required';
+                                if (Object.keys(errors).length > 0) {
+                                    setEditRecipeFormErrors(errors);
+                                    return;
+                                }
+                                setEditRecipeFormErrors({});
 
                                 const ingredientsArray = editIngredientsInput
                                     .split(/[\n,]+/)

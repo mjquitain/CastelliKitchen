@@ -75,6 +75,7 @@ function IngredientsPage() {
     const addIngredientMutation = useAddIngredient();
     const deleteBatchMutation = useDeleteIngredientBatch();
     const updateBatchMutation = useUpdateIngredientBatch();
+    const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
     const handleOpenEditModal = (item: any) => {
         setIngredientToEdit(item);
@@ -88,7 +89,18 @@ function IngredientsPage() {
     };
 
     const handleFormSubmit = () => {
-        if (!name || !quantity || !category || !dateAdded || !expiryDate) return;
+        const errors: Record<string, string> = {};
+        if (!name.trim()) errors.name = 'Ingredient name is required';
+        if (!quantity.trim()) errors.quantity = 'Quantity is required';
+        if (!category) errors.category = 'Category is required';
+        if (!dateAdded) errors.dateAdded = 'Date added is required';
+        if (!expiryDate) errors.expiryDate = 'Expiry date is required';
+
+        if (Object.keys(errors).length > 0) {
+            setFormErrors(errors);
+            return;
+        }
+        setFormErrors({});
 
         if (batchToEdit) {
             updateBatchMutation.mutate({
@@ -389,6 +401,7 @@ function IngredientsPage() {
                         setCategory(null);
                         setDateAdded(null);
                         setExpiryDate(null);
+                        setFormErrors({});
                     }}
                     title={<Text fw={"500"} size="lg">{modalTitle}</Text>}
                     centered
@@ -404,14 +417,18 @@ function IngredientsPage() {
                             label="Ingredient Name"
                             placeholder="e.g., Milk"
                             value={name}
-                            onChange={(e) => setName(e.currentTarget.value)}
+                            onChange={(e) => { setName(e.currentTarget.value); if (formErrors.name) setFormErrors(prev => ({ ...prev, name: '' })); }}
                             disabled={!!batchToEdit}
+                            withAsterisk
+                            error={formErrors.name}
                         />
                         <TextInput
                             label="Quantity"
                             placeholder="e.g., 2 liters"
                             value={quantity}
-                            onChange={(e) => setQuantity(e.currentTarget.value)}
+                            onChange={(e) => { setQuantity(e.currentTarget.value); if (formErrors.quantity) setFormErrors(prev => ({ ...prev, quantity: '' })); }}
+                            withAsterisk
+                            error={formErrors.quantity}
                         />
                         <Select
                             label="Category"
@@ -425,20 +442,26 @@ function IngredientsPage() {
                                 'Vegetable',
                             ]}
                             value={category}
-                            onChange={setCategory}
+                            onChange={(val) => { setCategory(val); if (formErrors.category) setFormErrors(prev => ({ ...prev, category: '' })); }}
                             disabled={!!batchToEdit}
+                            withAsterisk
+                            error={formErrors.category}
                         />
                         <DatePickerInput
                             label="Date Added"
                             placeholder="Select date added"
                             value={dateAdded}
-                            onChange={setDateAdded}
+                            onChange={(val) => { setDateAdded(val); if (formErrors.dateAdded) setFormErrors(prev => ({ ...prev, dateAdded: '' })); }}
+                            withAsterisk
+                            error={formErrors.dateAdded}
                         />
                         <DatePickerInput
                             label="Expiry Date"
                             placeholder="Select expiry date"
                             value={expiryDate}
-                            onChange={setExpiryDate}
+                            onChange={(val) => { setExpiryDate(val); if (formErrors.expiryDate) setFormErrors(prev => ({ ...prev, expiryDate: '' })); }}
+                            withAsterisk
+                            error={formErrors.expiryDate}
                         />
                         <Button
                             mt="md"
