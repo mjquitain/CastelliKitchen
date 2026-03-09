@@ -1,5 +1,5 @@
-import { useLogin } from '@/hooks/useAuth';
-import { Box, Button, Container, Paper, PasswordInput, Text, TextInput, Title } from '@mantine/core';
+import { useLogin, useResendVerification } from '@/hooks/useAuth';
+import { Anchor, Box, Button, Checkbox, Container, Divider, Flex, Paper, PasswordInput, Text, TextInput, Title } from '@mantine/core';
 import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 
@@ -9,21 +9,32 @@ function LoginPage() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [emailError, setEmailError] = useState('');
+    const [rememberMe, setRememberMe] = useState(false);
+    const [emailNotVerified, setEmailNotVerified] = useState(false);
+    const [resendSent, setResendSent] = useState(false);
 
     const navigate = useNavigate();
 
     const { mutate: login, isPending, error: apiError } = useLogin();
+    const { mutate: resend, isPending: isResending } = useResendVerification();
 
-    const handleSubmit = (e: { preventDefault: () => void; }) => {
+    const handleSubmit = async (e: { preventDefault: () => void; }) => {
         e.preventDefault();
 
         if (!emailRegex.test(email)) {
             setEmailError('Please enter a valid email address (e.g., user@domain.com)');
             return;
         }
-        login({ email, password }, {
+        setEmailNotVerified(false);
+        setResendSent(false);
+        login({ email, password, rememberMe }, {
             onSuccess: () => {
                 navigate({ to: '/home' });
+            },
+            onError: (err: any) => {
+                if (err?.response?.data?.emailNotVerified) {
+                    setEmailNotVerified(true);
+                }
             }
         });
     };
@@ -70,10 +81,46 @@ function LoginPage() {
                         Reduce food waste, one recipe at a time 🍳
                     </Text>
 
-                    {apiError && (
+                    {apiError && !emailNotVerified && (
                         <Text color="red" size="sm" ta="center" mb="md">
                             {(apiError as any).response?.data?.message || "Login failed"}
                         </Text>
+                    )}
+
+                    {emailNotVerified && (
+                        <Box
+                            mb="md"
+                            p="sm"
+                            style={{
+                                backgroundColor: '#fff8e1',
+                                borderRadius: '8px',
+                                border: '1px solid #ffe082',
+                                textAlign: 'center',
+                            }}
+                        >
+                            <Text size="sm" mb="xs" style={{ color: '#5a4000' }}>
+                                Your email address has not been verified. Please check your inbox.
+                            </Text>
+                            {resendSent ? (
+                                <Text size="sm" style={{ color: '#2d7a2d' }}>
+                                    Verification email resent! Check your inbox.
+                                </Text>
+                            ) : (
+                                <Button
+                                    size="xs"
+                                    variant="light"
+                                    loading={isResending}
+                                    style={{ backgroundColor: '#fff3cd', color: '#5a4000', border: '1px solid #ffe082' }}
+                                    onClick={() =>
+                                        resend(email, {
+                                            onSuccess: () => setResendSent(true),
+                                        })
+                                    }
+                                >
+                                    Resend verification email
+                                </Button>
+                            )}
+                        </Box>
                     )}
 
                     <form onSubmit={handleSubmit}>
@@ -126,9 +173,26 @@ function LoginPage() {
                             }}
                         />
 
+                        <Flex justify="space-between" align="center" mb="md">
+                            <Checkbox
+                                label="Remember me"
+                                checked={rememberMe}
+                                onChange={(event) => setRememberMe(event.currentTarget.checked)}
+                            />
+
+                            <Anchor
+                                component="button"
+                                type="button"
+                                size="sm"
+                                style={{ color: '#97A97C', fontWeight: 500 }}
+                                onClick={() => navigate({ to: '/forgot-password' })}
+                            >
+                                Forgot Password?
+                            </Anchor>
+                        </Flex>
+
                         <Button
                             fullWidth
-                            mt="xl"
                             type="submit"
                             loading={isPending}
                             style={{
@@ -139,26 +203,32 @@ function LoginPage() {
                         </Button>
                     </form>
 
-                    <Text ta="center" mt="md" size="sm" style={{ color: '#666' }}>
-                        Don't have an account?{' '}
-                        <Text
-                            component="a"
-                            href="#"
-                            style={{
-                                color: '#97A97C',
-                                fontWeight: 500,
-                                textDecoration: 'none',
-                            }}
-                            onClick={(e) => {
-                                e.preventDefault();
-                            }}
-                        >
-                            Sign up
-                        </Text>
-                    </Text>
+                    <Divider label="OR" labelPosition="center" my="lg" />
+
+                    <Button
+                        fullWidth
+                        variant="outline"
+                        leftSection={
+                            <svg width="18" height="18" viewBox="0 0 18 18">
+                                <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z" />
+                                <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z" />
+                                <path fill="#FBBC05" d="M3.964 10.707c-.18-.54-.282-1.117-.282-1.707 0-.59.102-1.167.282-1.707V4.96H.957C.347 6.175 0 7.55 0 9s.348 2.825.957 4.04l3.007-2.332z" />
+                                <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" />
+                            </svg>
+                        }
+                        onClick={() => {
+                            window.location.href = 'http://localhost:5000/api/v1/auth/google';
+                        }}
+                        style={{
+                            borderColor: '#dadce0',
+                            color: '#3c4043',
+                        }}
+                    >
+                        Continue with Google
+                    </Button>
                 </Paper>
             </Container>
-        </Box>
+        </Box >
     );
 }
 

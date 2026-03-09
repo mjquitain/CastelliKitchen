@@ -2,6 +2,7 @@ import mongoose, { Schema } from "mongoose";
 
 const RecipeSchema = new Schema(
     {
+        imageUrl: { type: String, required: false },
         name: { type: String, required: true, minLength: 1, maxLength: 100 },
         category: { type: String, enum: ['Beef', 'Chicken', 'Vegetarian', 'Vegan', 'Dessert', 'Lamb', 'Miscellaneous', 'Pasta', 'Seafood', 'Side', 'Pork', 'Breakfast', 'Goat', 'Starter'], required: true, minLength: 1, maxLength: 50 },
         area: { type: String, required: true, minLength: 1, maxLength: 50 },

@@ -10,21 +10,46 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as authVerifyEmailRouteImport } from './routes/(auth)/verify-email'
+import { Route as authSignupRouteImport } from './routes/(auth)/signup'
+import { Route as authResetPasswordRouteImport } from './routes/(auth)/reset-password'
 import { Route as authLoginRouteImport } from './routes/(auth)/login'
+import { Route as authForgotPasswordRouteImport } from './routes/(auth)/forgot-password'
 import { Route as protectedRecipeIndexRouteImport } from './routes/(protected)/recipe/index'
 import { Route as protectedProfileIndexRouteImport } from './routes/(protected)/profile/index'
 import { Route as protectedNotificationIndexRouteImport } from './routes/(protected)/notification/index'
 import { Route as protectedIngredientsIndexRouteImport } from './routes/(protected)/ingredients/index'
 import { Route as protectedHomeIndexRouteImport } from './routes/(protected)/home/index'
+import { Route as authAuthCallbackRouteImport } from './routes/(auth)/auth/callback'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const authVerifyEmailRoute = authVerifyEmailRouteImport.update({
+  id: '/(auth)/verify-email',
+  path: '/verify-email',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const authSignupRoute = authSignupRouteImport.update({
+  id: '/(auth)/signup',
+  path: '/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const authResetPasswordRoute = authResetPasswordRouteImport.update({
+  id: '/(auth)/reset-password',
+  path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const authLoginRoute = authLoginRouteImport.update({
   id: '/(auth)/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const authForgotPasswordRoute = authForgotPasswordRouteImport.update({
+  id: '/(auth)/forgot-password',
+  path: '/forgot-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const protectedRecipeIndexRoute = protectedRecipeIndexRouteImport.update({
@@ -54,10 +79,20 @@ const protectedHomeIndexRoute = protectedHomeIndexRouteImport.update({
   path: '/home/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const authAuthCallbackRoute = authAuthCallbackRouteImport.update({
+  id: '/(auth)/auth/callback',
+  path: '/auth/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/forgot-password': typeof authForgotPasswordRoute
   '/login': typeof authLoginRoute
+  '/reset-password': typeof authResetPasswordRoute
+  '/signup': typeof authSignupRoute
+  '/verify-email': typeof authVerifyEmailRoute
+  '/auth/callback': typeof authAuthCallbackRoute
   '/home': typeof protectedHomeIndexRoute
   '/ingredients': typeof protectedIngredientsIndexRoute
   '/notification': typeof protectedNotificationIndexRoute
@@ -66,7 +101,12 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/forgot-password': typeof authForgotPasswordRoute
   '/login': typeof authLoginRoute
+  '/reset-password': typeof authResetPasswordRoute
+  '/signup': typeof authSignupRoute
+  '/verify-email': typeof authVerifyEmailRoute
+  '/auth/callback': typeof authAuthCallbackRoute
   '/home': typeof protectedHomeIndexRoute
   '/ingredients': typeof protectedIngredientsIndexRoute
   '/notification': typeof protectedNotificationIndexRoute
@@ -76,7 +116,12 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/(auth)/forgot-password': typeof authForgotPasswordRoute
   '/(auth)/login': typeof authLoginRoute
+  '/(auth)/reset-password': typeof authResetPasswordRoute
+  '/(auth)/signup': typeof authSignupRoute
+  '/(auth)/verify-email': typeof authVerifyEmailRoute
+  '/(auth)/auth/callback': typeof authAuthCallbackRoute
   '/(protected)/home/': typeof protectedHomeIndexRoute
   '/(protected)/ingredients/': typeof protectedIngredientsIndexRoute
   '/(protected)/notification/': typeof protectedNotificationIndexRoute
@@ -87,7 +132,12 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/forgot-password'
     | '/login'
+    | '/reset-password'
+    | '/signup'
+    | '/verify-email'
+    | '/auth/callback'
     | '/home'
     | '/ingredients'
     | '/notification'
@@ -96,7 +146,12 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/forgot-password'
     | '/login'
+    | '/reset-password'
+    | '/signup'
+    | '/verify-email'
+    | '/auth/callback'
     | '/home'
     | '/ingredients'
     | '/notification'
@@ -105,7 +160,12 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/(auth)/forgot-password'
     | '/(auth)/login'
+    | '/(auth)/reset-password'
+    | '/(auth)/signup'
+    | '/(auth)/verify-email'
+    | '/(auth)/auth/callback'
     | '/(protected)/home/'
     | '/(protected)/ingredients/'
     | '/(protected)/notification/'
@@ -115,7 +175,12 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  authForgotPasswordRoute: typeof authForgotPasswordRoute
   authLoginRoute: typeof authLoginRoute
+  authResetPasswordRoute: typeof authResetPasswordRoute
+  authSignupRoute: typeof authSignupRoute
+  authVerifyEmailRoute: typeof authVerifyEmailRoute
+  authAuthCallbackRoute: typeof authAuthCallbackRoute
   protectedHomeIndexRoute: typeof protectedHomeIndexRoute
   protectedIngredientsIndexRoute: typeof protectedIngredientsIndexRoute
   protectedNotificationIndexRoute: typeof protectedNotificationIndexRoute
@@ -132,11 +197,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/(auth)/verify-email': {
+      id: '/(auth)/verify-email'
+      path: '/verify-email'
+      fullPath: '/verify-email'
+      preLoaderRoute: typeof authVerifyEmailRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/(auth)/signup': {
+      id: '/(auth)/signup'
+      path: '/signup'
+      fullPath: '/signup'
+      preLoaderRoute: typeof authSignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/(auth)/reset-password': {
+      id: '/(auth)/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof authResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/(auth)/login': {
       id: '/(auth)/login'
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof authLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/(auth)/forgot-password': {
+      id: '/(auth)/forgot-password'
+      path: '/forgot-password'
+      fullPath: '/forgot-password'
+      preLoaderRoute: typeof authForgotPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/(protected)/recipe/': {
@@ -174,12 +267,24 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof protectedHomeIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/(auth)/auth/callback': {
+      id: '/(auth)/auth/callback'
+      path: '/auth/callback'
+      fullPath: '/auth/callback'
+      preLoaderRoute: typeof authAuthCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  authForgotPasswordRoute: authForgotPasswordRoute,
   authLoginRoute: authLoginRoute,
+  authResetPasswordRoute: authResetPasswordRoute,
+  authSignupRoute: authSignupRoute,
+  authVerifyEmailRoute: authVerifyEmailRoute,
+  authAuthCallbackRoute: authAuthCallbackRoute,
   protectedHomeIndexRoute: protectedHomeIndexRoute,
   protectedIngredientsIndexRoute: protectedIngredientsIndexRoute,
   protectedNotificationIndexRoute: protectedNotificationIndexRoute,

@@ -75,9 +75,6 @@ export const RecipeActionModal: React.FC<RecipeActionModalProps> = ({
                     : await handleSave(recipeToActOn);
             } else {
                 await handleFavorite(recipeToActOn);
-                if (!isFavorited) {
-                    setActiveTab('favorite recipes');
-                }
             }
         } catch (error) {
             console.error("Failed to update recipe status", error);
@@ -107,7 +104,7 @@ export const RecipeActionModal: React.FC<RecipeActionModalProps> = ({
                         }
                     }}
                 >
-                    {isRemoveAction ? 'Yes, Remove It' : `Yes, ${currentActionType === 'save' ? 'Save' : 'Favorite'}`}
+                    {isRemoveAction ? 'Yes, Remove It' : `Yes, ${currentActionType === 'save' ? 'Save' : 'Favorite'} It`}
                 </Button>
                 <Button variant="default" onClick={onClose} fullWidth>
                     Cancel
