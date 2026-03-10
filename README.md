@@ -122,6 +122,7 @@ CastelliKitchen/
 - A running MongoDB instance or Atlas connection string
 - A Firebase project with Storage enabled and a service account key
 - Google OAuth 2.0 credentials (Client ID + Secret)
+- SMTP email account for sending password reset emails (Gmail with an App Password)
 
 ### 1. Clone the repository
 
