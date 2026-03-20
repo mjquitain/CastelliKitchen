@@ -31,7 +31,7 @@ if (process.env.NODE_ENV === "production") {
     // dev
     app.use(
         helmet({
-            contentSecurityPolicy: false,
+            contentSecurityPolicy: false, 
             xssFilter: true,
             noSniff: true
         })
