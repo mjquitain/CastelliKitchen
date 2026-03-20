@@ -1,4 +1,5 @@
-import { recipeApi } from '@/api/recipes';
+import { mealdbApi, recipeApi } from '@/api/recipes';
+import { showActionError, showActionSuccess } from '@/lib/actionNotifications';
 import type { MealRecipe } from '@/types/recipe';
 import { useEffect, useState } from 'react';
 
@@ -12,26 +13,33 @@ export const useRecipes = () => {
             const res = await recipeApi.getSaved();
             const rawData = Array.isArray(res.data) ? res.data : [];
             const mappedData = rawData.map((r: any) => {
+                const normalizedIngredients = Array.isArray(r.ingredients)
+                    ? r.ingredients
+                    : [];
+
                 const mapped: any = {
                     ...r,
-                    idMeal: r.apiRecipeId,
-                    strMeal: r.title,
-                    strMealThumb: r.image,
-                    strCategory: r.category,
-                    strArea: r.area,
-                    strInstructions: r.instructions,
-                    strYoutube: r.strYoutube,
+                    idMeal: r.apiRecipeId || r.idMeal || r._id,
+                    strMeal: r.title || r.strMeal || '',
+                    strMealThumb: r.image || r.strMealThumb || 'https://placehold.co/600x400?text=Recipe',
+                    strCategory: r.category || r.strCategory || '',
+                    strArea: r.area || r.strArea || '',
+                    strInstructions: r.instructions || r.strInstructions || '',
+                    strYoutube: r.strYoutube || '',
                     isFavorite: r.isFavorite,
                     _id: r._id,
-                    apiRecipeId: r.apiRecipeId,
-                    isCustom: String(r.apiRecipeId).startsWith('custom-'),
+                    apiRecipeId: r.apiRecipeId || r.idMeal || r._id,
+                    isCustom: String(r.apiRecipeId || r.idMeal || '').startsWith('custom-'),
                 };
 
-                if (r.ingredients && Array.isArray(r.ingredients)) {
-                    r.ingredients.forEach((ing: any, index: number) => {
-                        if (ing && ing.ingredient) {
-                            mapped[`strIngredient${index + 1}`] = ing.ingredient;
-                            mapped[`strMeasure${index + 1}`] = ing.measure || '';
+                if (normalizedIngredients.length > 0) {
+                    normalizedIngredients.forEach((ing: any, index: number) => {
+                        const ingredient = ing?.ingredient || ing?.name || ing?.strIngredient;
+                        const measure = ing?.measure || ing?.amount || ing?.strMeasure || '';
+
+                        if (ingredient) {
+                            mapped[`strIngredient${index + 1}`] = ingredient;
+                            mapped[`strMeasure${index + 1}`] = measure;
                         }
                     });
                 }
@@ -47,12 +55,64 @@ export const useRecipes = () => {
         }
     };
 
+    const getRecipeWithDetails = async (recipe: MealRecipe): Promise<MealRecipe> => {
+        const isCustomRecipe =
+            (recipe as any).isCustom ||
+            String((recipe as any).apiRecipeId || recipe.idMeal || '').startsWith('custom-');
+
+        if (isCustomRecipe) {
+            return recipe;
+        }
+
+        const hasInstructions = !!recipe.strInstructions;
+        const hasAnyIngredients = Object.keys(recipe).some(
+            (key) => key.startsWith('strIngredient') && recipe[key]
+        );
+
+        if (hasInstructions && hasAnyIngredients) {
+            return recipe;
+        }
+
+        if (!recipe.idMeal) {
+            return recipe;
+        }
+
+        try {
+            const detailRes = await mealdbApi.lookupById(recipe.idMeal);
+            const detailed = detailRes?.data?.meals?.[0];
+            if (!detailed) {
+                return recipe;
+            }
+
+            return {
+                ...detailed,
+                ...recipe,
+                strInstructions: recipe.strInstructions || detailed.strInstructions || '',
+                strCategory: recipe.strCategory || detailed.strCategory || '',
+                strArea: recipe.strArea || detailed.strArea || '',
+                strYoutube: recipe.strYoutube || detailed.strYoutube || '',
+            };
+        } catch (error) {
+            console.error('Failed to hydrate recipe details before save:', error);
+            return recipe;
+        }
+    };
+
     const handleSave = async (recipe: MealRecipe, imageFile?: File | null) => {
         try {
-            await recipeApi.saveExternal(recipe, false, imageFile);
+            const recipeToSave = await getRecipeWithDetails(recipe);
+            await recipeApi.saveExternal(recipeToSave, false, imageFile);
             await fetchSaved();
+            showActionSuccess({
+                title: 'Saved',
+                message: `${recipe.strMeal} was successfully saved.`,
+            });
         } catch (err) {
             console.error("Save failed", err);
+            showActionError({
+                title: 'Save failed',
+                message: 'Unable to save recipe. Please try again.',
+            });
         }
     };
 
@@ -65,37 +125,71 @@ export const useRecipes = () => {
             );
 
             if (!existingRecipe) {
-                await recipeApi.saveExternal(recipe, true, imageFile);
+                const recipeToSave = await getRecipeWithDetails(recipe);
+                await recipeApi.saveExternal(recipeToSave, true, imageFile);
                 await fetchSaved();
+                showActionSuccess({
+                    title: 'Favorited',
+                    message: `${recipe.strMeal} was added to favorites.`,
+                });
             } else {
+                const wasFavorite = !!existingRecipe.isFavorite;
                 await recipeApi.toggleFavorite(existingRecipe._id);
                 await fetchSaved();
+                showActionSuccess({
+                    title: wasFavorite ? 'Unfavorited' : 'Favorited',
+                    message: wasFavorite
+                        ? `${recipe.strMeal} was removed from favorites.`
+                        : `${recipe.strMeal} was added to favorites.`,
+                });
             }
         } catch (error: any) {
             console.error(
                 "Toggle favorite failed:",
                 error.response?.data || error.message
             );
+            showActionError({
+                title: 'Favorite update failed',
+                message: 'Unable to update favorite status. Please try again.',
+            });
         }
     };
 
     const handleDelete = async (recipe: MealRecipe) => {
-        const targetId = recipe._id;
+        const targetId =
+            recipe._id ||
+            savedRecipes.find(
+                (r: any) =>
+                    r.apiRecipeId === (recipe as any).apiRecipeId ||
+                    r.apiRecipeId === recipe.idMeal ||
+                    r.idMeal === recipe.idMeal
+            )?._id;
+
         if (!targetId) return;
 
-        if (window.confirm(`Are you sure you want to delete ${recipe.strMeal}?`)) {
-            try {
-                await recipeApi.remove(targetId);
-                await fetchSaved();
-            } catch (err) {
-                console.error("Delete failed", err);
-            }
+        try {
+            await recipeApi.remove(targetId);
+            await fetchSaved();
+            showActionSuccess({
+                title: 'Deleted',
+                message: `${recipe.strMeal} was successfully deleted.`,
+            });
+        } catch (err) {
+            console.error("Delete failed", err);
+            showActionError({
+                title: 'Delete failed',
+                message: 'Unable to delete recipe. Please try again.',
+            });
         }
     };
 
     const handleUpdate = async (updatedRecipe: any, imageFile?: File | null) => {
         if (!updatedRecipe.isCustom) {
             console.error("Cannot edit API-sourced recipes");
+            showActionError({
+                title: 'Update blocked',
+                message: 'Only custom recipes can be edited.',
+            });
             return;
         }
         try {
@@ -119,8 +213,16 @@ export const useRecipes = () => {
             };
             await recipeApi.update(updatedRecipe._id, payload, imageFile)
             await fetchSaved();
+            showActionSuccess({
+                title: 'Updated',
+                message: `${updatedRecipe.strMeal} was successfully updated.`,
+            });
         } catch (err) {
             console.error("Update failed", err);
+            showActionError({
+                title: 'Update failed',
+                message: 'Unable to update recipe. Please try again.',
+            });
         } finally {
             setIsLoading(false);
         }

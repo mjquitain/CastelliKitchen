@@ -1,7 +1,7 @@
 
 import { mealdbApi } from '@/api/recipes';
-import { RecipeActionModal } from "@/components/modals/ActionModal";
-import { RecipeDetailModal } from "@/components/modals/RecipeModal";
+import { openRecipeActionModal } from "@/components/modals/ActionModal";
+import { openRecipeDetailModal } from "@/components/modals/RecipeModal";
 import { RecipeCard } from "@/components/RecipeCard";
 import { useRecipes } from "@/hooks/useRecipes";
 import api from "@/lib/api";
@@ -52,7 +52,6 @@ function RecipePage() {
     const {
         savedRecipes = [],
         favoriteRecipes = [],
-        isLoading: isApiLoading,
         handleSave,
         handleFavorite,
         handleDelete,
@@ -62,17 +61,11 @@ function RecipePage() {
     const [selectedIngredients, setSelectedIngredients] = useState<string[]>([]);
     const [recipes, setRecipes] = useState<MealRecipe[]>([]);
     const [isInternalLoading, setIsInternalLoading] = useState(false);
-    const [hasSearched, setHasSearched] = useState(false);
-    const [selectedRecipe, setSelectedRecipe] = useState<MealRecipe | null>(null);
-    const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
     const [savedSearch, setSavedSearch] = useState("");
     const [savedCategory, setSavedCategory] = useState<string | null>(null);
     const [favSearch, setFavSearch] = useState("");
     const [favCategory, setFavCategory] = useState<string | null>(null);
     const [RecipeFormOpened, setRecipeFormOpened] = useState(false);
-    const [isActionModalOpen, setIsActionModalOpen] = useState(false);
-    const [recipeToActOn, setRecipeToActOn] = useState<MealRecipe | null>(null);
-    const [currentActionType, setCurrentActionType] = useState<ActionType>('save');
     const [activeTab, setActiveTab] = useState<string | null>("generated recipes");
     const [ingredientsList, setIngredientsList] = useState<Ingredient[]>([]);
     const [isIngredientsLoading, setIsIngredientsLoading] = useState(true);
@@ -185,11 +178,9 @@ function RecipePage() {
     const fetchRecipes = async () => {
         if (selectedIngredients.length === 0) {
             setRecipes([]);
-            setHasSearched(false);
             return;
         }
 
-        setHasSearched(true);
         setIsInternalLoading(true);
 
         try {
@@ -240,8 +231,7 @@ function RecipePage() {
             }
 
             if (recipe) {
-                setSelectedRecipe(recipe);
-                setIsDetailModalOpen(true);
+                openRecipeDetailModal(recipe);
             }
 
         } catch (error) {
@@ -250,9 +240,15 @@ function RecipePage() {
     };
 
     const openActionModal = (recipe: MealRecipe, action: ActionType) => {
-        setRecipeToActOn(recipe);
-        setCurrentActionType(action);
-        setIsActionModalOpen(true);
+        openRecipeActionModal({
+            recipeToActOn: recipe,
+            currentActionType: action,
+            isRecipeSaved,
+            isRecipeFavorite,
+            handleSave,
+            handleFavorite,
+            handleDelete,
+        });
     };
 
     const filteredSavedRecipes = (savedRecipes || []).filter((recipe) => {
@@ -616,25 +612,6 @@ function RecipePage() {
                         </Paper>
                     </Tabs.Panel>
                 </Tabs>
-
-                <RecipeActionModal
-                    opened={isActionModalOpen}
-                    onClose={() => setIsActionModalOpen(false)}
-                    recipeToActOn={recipeToActOn}
-                    currentActionType={currentActionType}
-                    isRecipeSaved={isRecipeSaved}
-                    isRecipeFavorite={isRecipeFavorite}
-                    handleSave={handleSave}
-                    handleFavorite={handleFavorite}
-                    handleDelete={handleDelete}
-                    setActiveTab={setActiveTab}
-                />
-
-                <RecipeDetailModal
-                    opened={isDetailModalOpen}
-                    onClose={() => setIsDetailModalOpen(false)}
-                    selectedRecipe={selectedRecipe}
-                />
 
                 {/* Change to ModalsProvider */}
                 <Modal

@@ -5,6 +5,7 @@ import { createNotification, getNotificationMessage } from "../utils/notificatio
 const addIngredient = async (req, res) => {
     try {
         const { name, quantity, category, dateAdded, expiryDate } = req.body;
+        const normalizedName = String(name || '').trim().toLowerCase();
 
         // console.log("USER:", req.user);
         // console.log("BODY:", req.body);
@@ -12,13 +13,13 @@ const addIngredient = async (req, res) => {
 
         let ingredient = await Ingredient.findOne({
             userId: req.user.id,
-            name
+            name: normalizedName
         });
 
         if (!ingredient) {
             ingredient = await Ingredient.create({
                 userId: req.user.id,
-                name,
+                name: normalizedName,
                 category
             });
         }
@@ -26,7 +27,9 @@ const addIngredient = async (req, res) => {
         const existingIngredientBatch = await IngredientBatch.findOne({
             userId: req.user.id,
             ingredientId: ingredient._id,
-            expiryDate
+            expiryDate,
+            isUsed: false,
+            isDeleted: false
         });
 
         if (existingIngredientBatch) {

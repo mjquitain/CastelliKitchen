@@ -1,5 +1,7 @@
+import { openConfirmActionModal } from "@/components/modals/ConfirmActionModal";
 import { useAddIngredient, useIngredients } from "@/hooks/useIngredients";
 import { useDeleteIngredientBatch, useUpdateIngredientBatch, } from "@/hooks/useIngredientsBatches";
+import { showActionError, showActionSuccess } from "@/lib/actionNotifications";
 import {
     ActionIcon,
     Badge,
@@ -33,6 +35,16 @@ interface Ingredient {
     name: string;
     category: string;
     batches: IngredientBatch[];
+}
+
+interface IngredientRowItem {
+    ingredientId: string;
+    batchId: string;
+    name: string;
+    category: string;
+    quantity: string;
+    dateAdded: string;
+    expiryDate: string;
 }
 
 export const calculateDaysInStorage = (dateAdded: string): number => {
@@ -102,23 +114,53 @@ function IngredientsPage() {
         }
         setFormErrors({});
 
+        const selectedCategory = category as string;
+        const serializedDateAdded = (dateAdded as Date).toISOString();
+        const serializedExpiryDate = (expiryDate as Date).toISOString();
+
         if (batchToEdit) {
             updateBatchMutation.mutate({
                 ingredientId: batchToEdit.ingredientId,
                 batchId: batchToEdit.batchId,
                 payload: {
                     quantity,
-                    dateAdded: dateAdded instanceof Date ? dateAdded.toISOString() : dateAdded,
-                    expiryDate: expiryDate instanceof Date ? expiryDate.toISOString() : expiryDate,
+                    dateAdded: serializedDateAdded,
+                    expiryDate: serializedExpiryDate,
+                },
+            }, {
+                onSuccess: () => {
+                    showActionSuccess({
+                        title: "Updated",
+                        message: `${name} was successfully updated.`,
+                    });
+                },
+                onError: () => {
+                    showActionError({
+                        title: "Update failed",
+                        message: `Unable to update ${name}. Please try again.`,
+                    });
                 },
             });
         } else {
             addIngredientMutation.mutate({
                 name,
                 quantity,
-                category,
-                dateAdded: dateAdded instanceof Date ? dateAdded.toISOString() : dateAdded,
-                expiryDate: expiryDate instanceof Date ? expiryDate.toISOString() : expiryDate,
+                category: selectedCategory,
+                dateAdded: serializedDateAdded,
+                expiryDate: serializedExpiryDate,
+            }, {
+                onSuccess: () => {
+                    showActionSuccess({
+                        title: "Added",
+                        message: `${name} was successfully added.`,
+                    });
+                },
+                onError: () => {
+                    showActionError({
+                        title: "Add failed",
+                        message: `Unable to add ${name}. Please try again.`,
+                    });
+                },
             });
         }
 
@@ -167,15 +209,58 @@ function IngredientsPage() {
         });
     }, [search, selectedCategory, tableRows]);
 
-    const handleDeleteIngredient = (ingredientId: string, batchId: string) => {
-        deleteBatchMutation.mutate({ ingredientId, batchId });
+    const handleDeleteIngredient = (ingredientId: string, batchId: string, ingredientName: string) => {
+        openConfirmActionModal({
+            title: "Delete ingredient batch?",
+            message: `Are you sure you want to delete this batch of ${ingredientName}?`,
+            confirmLabel: "Yes, Delete It",
+            confirmColor: "#e54854",
+            confirmIcon: <Trash2 size={18} />,
+            onConfirm: () => {
+                deleteBatchMutation.mutate({ ingredientId, batchId }, {
+                    onSuccess: () => {
+                        showActionSuccess({
+                            title: "Deleted",
+                            message: `${ingredientName} was successfully deleted.`,
+                        });
+                    },
+                    onError: () => {
+                        showActionError({
+                            title: "Delete failed",
+                            message: `Unable to delete ${ingredientName}. Please try again.`,
+                        });
+                    },
+                });
+            },
+        });
     };
 
-    const markAsUsed = (ingredientId: string, batchId: string) => {
-        updateBatchMutation.mutate({
-            ingredientId,
-            batchId,
-            payload: { isUsed: true },
+    const markAsUsed = (ingredientId: string, batchId: string, ingredientName: string) => {
+        openConfirmActionModal({
+            title: "Mark ingredient as used?",
+            message: `Mark ${ingredientName} as used?`,
+            confirmLabel: "Yes, Mark as Used",
+            confirmColor: "#8a9a7b",
+            onConfirm: () => {
+                updateBatchMutation.mutate({
+                    ingredientId,
+                    batchId,
+                    payload: { isUsed: true },
+                }, {
+                    onSuccess: () => {
+                        showActionSuccess({
+                            title: "Marked as used",
+                            message: `${ingredientName} is successfully marked as used.`,
+                        });
+                    },
+                    onError: () => {
+                        showActionError({
+                            title: "Update failed",
+                            message: `Unable to mark ${ingredientName} as used.`,
+                        });
+                    },
+                });
+            },
         });
     };
 
@@ -275,7 +360,7 @@ function IngredientsPage() {
                             </Table.Thead>
 
                             <Table.Tbody>
-                                {filteredIngredients.map((item: Ingredient, index: number) => {
+                                {filteredIngredients.map((item: IngredientRowItem, index: number) => {
                                     const expiryStatus = getExpiryStatus(item.expiryDate);
 
                                     if (isLoading) {
@@ -340,7 +425,7 @@ function IngredientsPage() {
                                                     <Button
                                                         color="#6b7c5e"
                                                         size="xs"
-                                                        onClick={() => markAsUsed(item.ingredientId, item.batchId)}
+                                                        onClick={() => markAsUsed(item.ingredientId, item.batchId, item.name)}
                                                     >
                                                         Mark As Used
                                                     </Button>
@@ -356,7 +441,7 @@ function IngredientsPage() {
                                                         variant="light"
                                                         color="red"
                                                         size="sm"
-                                                        onClick={() => handleDeleteIngredient(item.ingredientId, item.batchId)}
+                                                        onClick={() => handleDeleteIngredient(item.ingredientId, item.batchId, item.name)}
                                                     >
                                                         <Trash2 size={16} />
                                                     </ActionIcon>
@@ -451,7 +536,10 @@ function IngredientsPage() {
                             label="Date Added"
                             placeholder="Select date added"
                             value={dateAdded}
-                            onChange={(val) => { setDateAdded(val); if (formErrors.dateAdded) setFormErrors(prev => ({ ...prev, dateAdded: '' })); }}
+                            onChange={(val) => {
+                                setDateAdded(val ? new Date(val) : null);
+                                if (formErrors.dateAdded) setFormErrors(prev => ({ ...prev, dateAdded: '' }));
+                            }}
                             withAsterisk
                             error={formErrors.dateAdded}
                         />
@@ -459,7 +547,10 @@ function IngredientsPage() {
                             label="Expiry Date"
                             placeholder="Select expiry date"
                             value={expiryDate}
-                            onChange={(val) => { setExpiryDate(val); if (formErrors.expiryDate) setFormErrors(prev => ({ ...prev, expiryDate: '' })); }}
+                            onChange={(val) => {
+                                setExpiryDate(val ? new Date(val) : null);
+                                if (formErrors.expiryDate) setFormErrors(prev => ({ ...prev, expiryDate: '' }));
+                            }}
                             withAsterisk
                             error={formErrors.expiryDate}
                         />
