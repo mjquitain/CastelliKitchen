@@ -2,14 +2,42 @@ import { Ingredient } from "../models/ingredient.model.js";
 import { IngredientBatch } from "../models/ingredientbatch.model.js";
 import { createNotification, getNotificationMessage } from "../utils/notificationHelper.js";
 
+const isValidDate = (date) => {
+  const d = new Date(date);
+  return !isNaN(d);
+};
+
+const isPositiveNumber = (value) => {
+  const num = Number(value);
+  return !isNaN(num) && num > 0;
+};
+
 const addIngredient = async (req, res) => {
     try {
         const { name, quantity, category, dateAdded, expiryDate } = req.body;
+        
+
+        if (!name || !quantity || !category || !dateAdded || !expiryDate) {
+            return res.status(400).json({ message: "All fields are required." });
+        }
+
+        const parsedQuantity = Number(quantity);
+        if (isNaN(parsedQuantity) || parsedQuantity <= 0) {
+            return res.status(400).json({ message: "Quantity must be a positive number." });
+        }
+
+        const addedDate = new Date(dateAdded);
+        const expiry = new Date(expiryDate);
+
+        if (isNaN(addedDate) || isNaN(expiry)) {
+            return res.status(400).json({ message: "Invalid date format." });
+        }
+
+        if (expiry < addedDate) {
+            return res.status(400).json({ message: "Expiry date cannot be before date added." });
+        }
+
         const normalizedName = String(name || '').trim().toLowerCase();
-
-        // console.log("USER:", req.user);
-        // console.log("BODY:", req.body);
-
 
         let ingredient = await Ingredient.findOne({
             userId: req.user.id,
@@ -69,31 +97,39 @@ const getIngredients = async (req, res) => {
         const ingredients = await Ingredient.find({ userId: req.user.id }).populate({ path: "batches", match: { isUsed: false, isDeleted: false } });
         res.status(200).json(ingredients);
     } catch (error) {
-        res.status(500).json({ message: "Error retrieving ingredients.", error })
+        res.status(500).json({ message: "Error retrieving ingredients." })
     }
 };
 
 const getIngredientsByCategory = async (req, res) => {
     try {
+        if (!req.params.category) {
+            return res.status(400).json({ message: "Category is required." });
+        }
+
         const ingredients = await Ingredient.find({
             userId: req.user.id,
             category: req.params.category
         });
         res.status(200).json(ingredients);
     } catch (error) {
-        res.status(500).json({ message: "Error retrieving ingredients by category.", error });
+        res.status(500).json({ message: "Error retrieving ingredients by category." });
     }
 };
 
 const getBatchesPerIngredient = async (req, res) => {
     try {
+        if (!req.params.ingredientId) {
+            return res.status(400).json({ message: "Ingredient ID is required." });
+        }
+
         const ingredients = await IngredientBatch.find({
             userId: req.user.id,
             ingredientId: req.params.ingredientId,
             isUsed: false,
             isDeleted: false
-        })
-            .sort({ expiryDate: 1 });
+        }).sort({ expiryDate: 1 });
+
         res.status(200).json(ingredients);
     } catch (error) {
         res.status(500).json({ message: "Error retrieving all batches of the ingredient" })
@@ -102,6 +138,10 @@ const getBatchesPerIngredient = async (req, res) => {
 
 const getIngredientBatch = async (req, res) => {
     try {
+        if (!req.params.batchId) {
+            return res.status(400).json({ message: "Batch ID is required." });
+        }
+
         const ingredientBatch = await IngredientBatch.findOne({
             _id: req.params.batchId,
             userId: req.user.id
@@ -113,13 +153,21 @@ const getIngredientBatch = async (req, res) => {
 
         res.status(200).json(ingredientBatch);
     } catch (error) {
-        res.status(500).json({ message: "Error retrieving ingredient batch" });
+        res.status(500).json({ message: "Error retrieving ingredient batch." });
     }
 }
 
 // update
 const updateIngredient = async (req, res) => {
     try {
+        if (!req.params.ingredientId) {
+            return res.status(400).json({ message: "Ingredient ID is required." });
+        }
+
+        if (!req.body || Object.keys(req.body).length === 0) {
+            return res.status(400).json({ message: "At least one field is required to update." });
+        }
+
         const { name, category } = req.body;
         const updateData = {};
         if (name) updateData.name = name.toLowerCase().trim();
@@ -160,11 +208,42 @@ const updateIngredient = async (req, res) => {
 
 const updateIngredientBatch = async (req, res) => {
     try {
+        if (!req.params.batchId) {
+            return res.status(400).json({ message: "Batch ID is required." });
+        }
+
+        if (!req.body || Object.keys(req.body).length === 0) {
+            return res.status(400).json({ message: "At least one field is required to update." });
+        }
+
         const { quantity, dateAdded, expiryDate, isUsed } = req.body;
         const updateData = {};
-        if (quantity) updateData.quantity = quantity;
-        if (dateAdded) updateData.dateAdded = dateAdded;
-        if (expiryDate) updateData.expiryDate = expiryDate;
+
+        if (quantity !== undefined) {
+            if (!isPositiveNumber(quantity)) {
+                return res.status(400).json({ message: "Quantity must be a positive number." });
+            }
+            updateData.quantity = quantity;
+        }
+
+        if (dateAdded) {
+            if (!isValidDate(dateAdded)) {
+                return res.status(400).json({ message: "Invalid date format." });
+            }
+            updateData.dateAdded = dateAdded;
+        }
+
+        if (expiryDate) {
+            if (!isValidDate(expiryDate)) {
+                return res.status(400).json({ message: "Invalid date format." });
+            }
+            updateData.expiryDate = expiryDate;
+        }
+
+        if (dateAdded && expiryDate && new Date(expiryDate) < new Date(dateAdded)) {
+            return res.status(400).json({ message: "Expiry date cannot be before date added." });
+        }
+
         if (typeof isUsed === "boolean") updateData.isUsed = isUsed;
 
         const beforeUpdate = await IngredientBatch.findOne({
@@ -178,10 +257,10 @@ const updateIngredientBatch = async (req, res) => {
             { new: true, runValidators: true }
         ).populate('ingredientId');
 
-        const afterUpdate = await IngredientBatch.findOne({
-            userId: req.user.id,
-            _id: req.params.batchId
-        });
+        // const afterUpdate = await IngredientBatch.findOne({
+        //     userId: req.user.id,
+        //     _id: req.params.batchId
+        // });
 
         if (!ingredientBatch) {
             return res.status(404).json({ message: "Ingredient batch not found." });
@@ -199,7 +278,7 @@ const updateIngredientBatch = async (req, res) => {
                     ingredientName
                 );
             }
-            else if (quantity || dateAdded || expiryDate) {
+            else if (quantity !== undefined || dateAdded !== undefined || expiryDate !== undefined) {
                 await createNotification(
                     req.user.id,
                     'ingredient_edited',
@@ -214,7 +293,7 @@ const updateIngredientBatch = async (req, res) => {
 
         res.status(200).json(ingredientBatch);
     } catch (error) {
-        console.error("Error updating batch:", error);
+        console.error("Error updating batch:");
         res.status(500).json({ message: "Error updating ingredient batch." });
     };
 };
@@ -222,6 +301,10 @@ const updateIngredientBatch = async (req, res) => {
 // delete
 const deleteIngredient = async (req, res) => {
     try {
+        if (!req.params.ingredientId) {
+            return res.status(400).json({ message: "Ingredient ID is required." });
+        }
+
         const ingredient = await Ingredient.findOne({
             userId: req.user.id,
             _id: req.params.ingredientId
@@ -257,12 +340,16 @@ const deleteIngredient = async (req, res) => {
 
         res.status(200).json({ message: "Ingredient deleted successfully." });
     } catch (error) {
-        res.status(500).json({ message: "Error deleting ingredient.", error });
+        res.status(500).json({ message: "Error deleting ingredient." });
     }
 }
 
 const deleteIngredientBatch = async (req, res) => {
     try {
+        if (!req.params.batchId) {
+            return res.status(400).json({ message: "Batch ID is required." });
+        }
+
         const ingredientBatch = await IngredientBatch.findOneAndUpdate(
             {
                 userId: req.user.id,
@@ -291,28 +378,9 @@ const deleteIngredientBatch = async (req, res) => {
         res.status(200).json({ message: "Ingredient batch deleted successfully." });
     } catch (error) {
         console.error("Error deleting batch:", error);
-        res.status(500).json({ message: "Error deleting ingredient batch.", error });
+        res.status(500).json({ message: "Error deleting ingredient batch." });
     }
 }
-
-// const markIngredientAsUsed = async (req, res) => {
-//     try {
-//         const batch = await IngredientBatch.findOne({ 
-//             _id: req.params.batchId, 
-//             userId: req.user._id 
-//         });
-
-//         if (!batch) {
-//             return res.status(404).json({ message: "Ingredient not found." });
-//         }
-
-//         batch.isUsed = true;
-//         await batch.save();
-//         res.status(200).json(batch);
-//     } catch (error) {
-//         res.status(500).json({ message: "Error marking ingredient as used." });
-//     }
-// };
 
 export {
     addIngredient, deleteIngredient, deleteIngredientBatch, getBatchesPerIngredient, getIngredientBatch, getIngredients, getIngredientsByCategory, updateIngredient, updateIngredientBatch

@@ -30,6 +30,7 @@
     "uuid": "^13.0.0"
   },
   "devDependencies": {
+    "@firebase/testing": "^0.20.11",
     "@types/node": "^25.0.6",
     "vitest": "^4.1.1"
   },
