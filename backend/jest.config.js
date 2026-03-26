@@ -4,3 +4,4 @@ export default {
     setupFilesAfterEnv: ["<rootDir>/tests/integration/setup.js"],
     clearMocks: true,
 };
+
