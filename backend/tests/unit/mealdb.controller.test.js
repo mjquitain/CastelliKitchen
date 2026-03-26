@@ -1,13 +1,13 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, jest } from "@jest/globals";
 import { filterByIngredient, searchByName, lookupById } from '../../src/controllers/mealdb.controller.js'; 
 
-global.fetch = vi.fn();
+global.fetch = jest.fn();
 
 describe('Meal API Handlers', () => {
   let mockReq, mockRes;
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    jest.clearAllMocks();
     
     mockReq = {
       query: {},
@@ -15,9 +15,9 @@ describe('Meal API Handlers', () => {
     };
     
     mockRes = {
-      status: vi.fn().mockReturnThis(),
-      json: vi.fn(),
-      setHeader: vi.fn()
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn(),
+      setHeader: jest.fn()
     };
   });
 
@@ -197,11 +197,11 @@ describe('Meal API Handlers', () => {
   describe('Error Logging', () => {
     beforeEach(() => {
       // Mock console.error
-      vi.spyOn(console, 'error').mockImplementation(() => {});
+      jest.spyOn(console, 'error').mockImplementation(() => {});
     });
 
     afterEach(() => {
-      vi.restoreAllMocks();
+      jest.restoreAllMocks();
     });
 
     it('should log errors to console.error', async () => {

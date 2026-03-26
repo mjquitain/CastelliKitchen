@@ -1,37 +1,38 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { saveRecipe, getSavedRecipes, getFavoriteRecipes, toggleFavoriteStatus, deleteSavedRecipe, updateSavedRecipe } from '../../src/controllers/savedrecipes.controller.js';
-import { SavedRecipe } from '../../src/models/savedrecipe.model.js';
-import { uploadFileToStorage, deleteFileFromStorage } from '../../src/utils/fileUpload.js';
-import { createNotification, getNotificationMessage } from '../../src/utils/notificationHelper.js';
+import { describe, it, expect, beforeEach, jest } from "@jest/globals";
 
-vi.mock('../../src/models/savedrecipe.model.js', () => ({
+jest.unstable_mockModule('../../src/models/savedrecipe.model.js', () => ({
   SavedRecipe: {
-    findOne: vi.fn(),
-    create: vi.fn(),
-    find: vi.fn(),
-    findOneAndDelete: vi.fn()
+    findOne: jest.fn(),
+    create: jest.fn(),
+    find: jest.fn(),
+    findOneAndDelete: jest.fn()
   }
 }));
 
-vi.mock('../../src/utils/fileUpload.js', () => ({
-  uploadFileToStorage: vi.fn(),
-  deleteFileFromStorage: vi.fn()
+jest.unstable_mockModule('../../src/utils/fileUpload.js', () => ({
+  uploadFileToStorage: jest.fn(),
+  deleteFileFromStorage: jest.fn()
 }));
 
-vi.mock('../../src/utils/notificationHelper.js', () => ({
-  createNotification: vi.fn(),
-  getNotificationMessage: vi.fn((type, title) => `${title} message`)
+jest.unstable_mockModule('../../src/utils/notificationHelper.js', () => ({
+  createNotification: jest.fn(),
+  getNotificationMessage: jest.fn((type, title) => `${title} message`)
 }));
 
 const mockRes = () => {
   const res = {};
-  res.status = vi.fn().mockReturnValue(res);
-  res.json = vi.fn().mockReturnValue(res);
+  res.status = jest.fn().mockReturnValue(res);
+  res.json = jest.fn().mockReturnValue(res);
   return res;
 };
 
+const { saveRecipe, getSavedRecipes, getFavoriteRecipes, toggleFavoriteStatus, deleteSavedRecipe, updateSavedRecipe } = await import('../../src/controllers/savedrecipes.controller.js');
+const { SavedRecipe } = await import('../../src/models/savedrecipe.model.js');
+const { uploadFileToStorage, deleteFileFromStorage } = await import('../../src/utils/fileUpload.js');
+const { createNotification, getNotificationMessage } = await import('../../src/utils/notificationHelper.js');
+
 beforeEach(() => {
-  vi.clearAllMocks();
+  jest.clearAllMocks();
 });
 
 describe('SavedRecipe Controller', () => {
@@ -114,7 +115,7 @@ describe('SavedRecipe Controller', () => {
     it('returns saved recipes sorted', async () => {
       const req = { user: { id: 'user1' } };
       const mockData = [{ title: 'A' }, { title: 'B' }];
-      SavedRecipe.find.mockReturnValue({ sort: vi.fn().mockResolvedValue(mockData) });
+      SavedRecipe.find.mockReturnValue({ sort: jest.fn().mockResolvedValue(mockData) });
 
       const res = mockRes();
       await getSavedRecipes(req, res);
@@ -152,7 +153,7 @@ describe('SavedRecipe Controller', () => {
   describe('toggleFavoriteStatus', () => {
     it('toggles favorite from false → true and creates notification', async () => {
       const req = { params: { id: 'id1' }, user: { id: 'user1' } };
-      const mockRecipe = { _id: 'id1', isFavorite: false, title: 'T', save: vi.fn() };
+      const mockRecipe = { _id: 'id1', isFavorite: false, title: 'T', save: jest.fn() };
       SavedRecipe.findOne.mockResolvedValue(mockRecipe);
 
       const res = mockRes();
@@ -205,7 +206,7 @@ describe('SavedRecipe Controller', () => {
         user: { id: 'user1' },
         body: { title: 'New Title', ingredients: [{ name: 'X' }] }
       };
-      const mockRecipe = { _id: 'id1', save: vi.fn(), title: 'Old', ingredients: [], image: null };
+      const mockRecipe = { _id: 'id1', save: jest.fn(), title: 'Old', ingredients: [], image: null };
       SavedRecipe.findOne.mockResolvedValue(mockRecipe);
 
       const res = mockRes();

@@ -1,5 +1,18 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import {
+import { describe, it, expect, beforeEach, jest } from "@jest/globals";
+
+jest.unstable_mockModule('../../src/models/notification.model.js', () => ({
+  Notification: {
+    find: jest.fn(),
+    create: jest.fn(),
+    findOneAndUpdate: jest.fn(),
+    updateMany: jest.fn(),
+    findOneAndDelete: jest.fn(),
+    deleteMany: jest.fn(),
+    countDocuments: jest.fn()
+  }
+}));
+
+const {
   getNotifications,
   createNotification,
   markAsRead,
@@ -7,28 +20,16 @@ import {
   deleteNotification,
   clearAllNotifications,
   getUnreadCount
-} from '../../src/controllers/notification.controller.js';
+} = await import('../../src/controllers/notification.controller.js');
 
-import { Notification } from '../../src/models/notification.model.js';
-
-vi.mock('../../src/models/notification.model.js', () => ({
-  Notification: {
-    find: vi.fn(),
-    create: vi.fn(),
-    findOneAndUpdate: vi.fn(),
-    updateMany: vi.fn(),
-    findOneAndDelete: vi.fn(),
-    deleteMany: vi.fn(),
-    countDocuments: vi.fn()
-  }
-}));
+const { Notification } = await import('../../src/models/notification.model.js');
 
 describe('Notification Controller', () => {
   let req;
   let res;
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    jest.clearAllMocks();
 
     req = {
       user: { id: 'user123' },
@@ -38,16 +39,16 @@ describe('Notification Controller', () => {
     };
 
     res = {
-      status: vi.fn().mockReturnThis(),
-      json: vi.fn()
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn()
     };
   });
 
   describe('getNotifications', () => {
     it('should fetch notifications with default limit', async () => {
       const mockChain = {
-        sort: vi.fn().mockReturnThis(),
-        limit: vi.fn().mockResolvedValue(['notif1'])
+        sort: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockResolvedValue(['notif1'])
       };
 
       Notification.find.mockReturnValue(mockChain);
@@ -69,8 +70,8 @@ describe('Notification Controller', () => {
       req.query.unreadOnly = 'true';
 
       const mockChain = {
-        sort: vi.fn().mockReturnThis(),
-        limit: vi.fn().mockResolvedValue([])
+        sort: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockResolvedValue([])
       };
 
       Notification.find.mockReturnValue(mockChain);
@@ -87,8 +88,8 @@ describe('Notification Controller', () => {
       req.query.limit = '10';
 
       const mockChain = {
-        sort: vi.fn().mockReturnThis(),
-        limit: vi.fn().mockResolvedValue([])
+        sort: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockResolvedValue([])
       };
 
       Notification.find.mockReturnValue(mockChain);
@@ -102,8 +103,8 @@ describe('Notification Controller', () => {
       req.query.limit = 'invalid';
 
       const mockChain = {
-        sort: vi.fn().mockReturnThis(),
-        limit: vi.fn().mockResolvedValue([])
+        sort: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockResolvedValue([])
       };
 
       Notification.find.mockReturnValue(mockChain);

@@ -1,25 +1,32 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import jwt from "jsonwebtoken";
-import authMiddleware from "../../src/middleware/auth.js";
+import { describe, it, expect, beforeEach, jest } from "@jest/globals";
 
-vi.mock("jsonwebtoken", () => ({
+
+jest.unstable_mockModule("jsonwebtoken", () => ({
   default: {
-    verify: vi.fn()
-  }
+    verify: jest.fn(),
+  },
 }));
 
-const mockNext = vi.fn();
+
+const jwt = (await import("jsonwebtoken")).default;
+const { default: authMiddleware } = await import(
+  "../../src/middleware/auth.js"
+);
+
+
+const mockNext = jest.fn();
 
 const mockRes = () => {
   const res = {};
-  res.status = vi.fn().mockReturnValue(res);
-  res.json = vi.fn().mockReturnValue(res);
+  res.status = jest.fn().mockReturnValue(res);
+  res.json = jest.fn().mockReturnValue(res);
   return res;
 };
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  jest.clearAllMocks();
 });
+
 
 describe("authMiddleware", () => {
   it("returns 401 if no authorization header", async () => {
@@ -48,12 +55,21 @@ describe("authMiddleware", () => {
     const req = { headers: { authorization: "Bearer validtoken" } };
     const res = mockRes();
 
-    jwt.verify.mockReturnValue({ id: "user123", email: "test@example.com" });
+    jwt.verify.mockReturnValue({
+      id: "user123",
+      email: "test@example.com",
+    });
 
     await authMiddleware(req, res, mockNext);
 
-    expect(jwt.verify).toHaveBeenCalledWith("validtoken", process.env.JWT_SECRET);
-    expect(req.user).toEqual({ id: "user123", email: "test@example.com" });
+    expect(jwt.verify).toHaveBeenCalledWith(
+      "validtoken",
+      process.env.JWT_SECRET
+    );
+    expect(req.user).toEqual({
+      id: "user123",
+      email: "test@example.com",
+    });
     expect(mockNext).toHaveBeenCalled();
   });
 
@@ -73,7 +89,9 @@ describe("authMiddleware", () => {
     const req = { headers: { authorization: "Bearer badtoken" } };
     const res = mockRes();
 
-    jwt.verify.mockImplementation(() => { throw new Error("invalid") });
+    jwt.verify.mockImplementation(() => {
+      throw new Error("invalid");
+    });
 
     await authMiddleware(req, res, mockNext);
 
@@ -88,12 +106,17 @@ describe("authMiddleware", () => {
 
     const error = new Error("jwt expired");
     error.name = "TokenExpiredError";
-    jwt.verify.mockImplementation(() => { throw error });
+
+    jwt.verify.mockImplementation(() => {
+      throw error;
+    });
 
     await authMiddleware(req, res, mockNext);
 
     expect(res.status).toHaveBeenCalledWith(401);
-    expect(res.json).toHaveBeenCalledWith({ message: "Token has expired" });
+    expect(res.json).toHaveBeenCalledWith({
+      message: "Token has expired",
+    });
     expect(mockNext).not.toHaveBeenCalled();
   });
 });

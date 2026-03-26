@@ -1,48 +1,49 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import {
-  addRecipe,
-  getRecipes,
-  getRecipeById,
-  updateRecipe,
-  deleteRecipe
-} from '../../src/controllers/recipe.controller.js';
+import { describe, it, expect, beforeEach, jest } from "@jest/globals";
 
-import { Recipe } from '../../src/models/recipe.model.js';
-import { bucket } from '../../src/config/firebase.js';
-import {
-  uploadFileToStorage,
-  deleteFileFromStorage
-} from '../../src/utils/fileUpload.js';
-
-vi.mock('../../src/models/recipe.model.js', () => ({
+jest.unstable_mockModule('../../src/models/recipe.model.js', () => ({
   Recipe: {
-    create: vi.fn(),
-    find: vi.fn(),
-    findById: vi.fn(),
-    findByIdAndUpdate: vi.fn(),
-    findOneAndDelete: vi.fn()
+    create: jest.fn(),
+    find: jest.fn(),
+    findById: jest.fn(),
+    findByIdAndUpdate: jest.fn(),
+    findOneAndDelete: jest.fn()
   }
 }));
 
-vi.mock('../../src/config/firebase.js', () => {
+jest.unstable_mockModule('../../src/config/firebase.js', () => {
   const mockFile = {
-    save: vi.fn(),
-    makePublic: vi.fn(),
+    save: jest.fn(),
+    makePublic: jest.fn(),
     name: 'mock-file-name'
   };
 
   return {
     bucket: {
       name: 'test-bucket',
-      file: vi.fn(() => mockFile)
+      file: jest.fn(() => mockFile)
     }
   };
 });
 
-vi.mock('../../src/utils/fileUpload.js', () => ({
-  uploadFileToStorage: vi.fn(),
-  deleteFileFromStorage: vi.fn()
+jest.unstable_mockModule('../../src/utils/fileUpload.js', () => ({
+  uploadFileToStorage: jest.fn(),
+  deleteFileFromStorage: jest.fn()
 }));
+
+const { Recipe } = await import('../../src/models/recipe.model.js');
+const { bucket } = await import('../../src/config/firebase.js');
+const {
+  uploadFileToStorage,
+  deleteFileFromStorage
+} = await import('../../src/utils/fileUpload.js');
+
+const {
+  addRecipe,
+  getRecipes,
+  getRecipeById,
+  updateRecipe,
+  deleteRecipe
+} = await import('../../src/controllers/recipe.controller.js');
 
 describe('Recipe Controller', () => {
   let req;
@@ -50,7 +51,7 @@ describe('Recipe Controller', () => {
   let mockFile;
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    jest.clearAllMocks();
 
     req = {
       user: { id: 'user123' },
@@ -60,9 +61,9 @@ describe('Recipe Controller', () => {
     };
 
     res = {
-      status: vi.fn().mockReturnThis(),
-      json: vi.fn(),
-      send: vi.fn()
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn(),
+      send: jest.fn()
     };
 
     mockFile = bucket.file();
@@ -220,7 +221,7 @@ describe('Recipe Controller', () => {
       req.params.id = '1';
       req.file = { buffer: Buffer.from(''), mimetype: 'image/jpeg' };
 
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
       Recipe.findById.mockResolvedValue({
         imageUrl: 'https://storage.googleapis.com/test-bucket/old.jpg'
@@ -282,7 +283,7 @@ describe('Recipe Controller', () => {
     });
 
     it('should handle delete image failure', async () => {
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
       req.params.id = '1';
 

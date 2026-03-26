@@ -1,26 +1,36 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { Notification } from '../../src/models/notification.model.js';
-import { createNotification, getNotificationMessage } from '../../src/utils/notificationHelper.js';
+import { describe, it, expect, beforeEach, jest, afterEach } from "@jest/globals";
 
-vi.mock('../../src/models/notification.model.js');
+jest.unstable_mockModule('../../src/models/notification.model.js', () => ({
+  Notification: {
+    create: jest.fn()
+  }
+}));
+
+const { Notification } = await import('../../src/models/notification.model.js');
+const { createNotification, getNotificationMessage } = await import('../../src/utils/notificationHelper.js');
+
 
 describe('Notification Helper', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    jest.clearAllMocks();
   });
 
   describe('createNotification', () => {
     it('should create notification successfully', async () => {
-      const mockCreate = vi.spyOn(Notification, 'create').mockResolvedValueOnce({
+      Notification.create.mockResolvedValueOnce({
         id: 1,
         userId: 'user123',
         type: 'ingredient_added',
         message: 'Flour was added to your pantry'
       });
 
-      await createNotification('user123', 'ingredient_added', 'Flour was added to your pantry');
+      await createNotification(
+        'user123',
+        'ingredient_added',
+        'Flour was added to your pantry'
+      );
 
-      expect(mockCreate).toHaveBeenCalledWith({
+      expect(Notification.create).toHaveBeenCalledWith({
         userId: 'user123',
         type: 'ingredient_added',
         message: 'Flour was added to your pantry',
@@ -30,7 +40,7 @@ describe('Notification Helper', () => {
     });
 
     it('should create notification with relatedId and relatedName', async () => {
-      const mockCreate = vi.spyOn(Notification, 'create').mockResolvedValueOnce({});
+      Notification.create.mockResolvedValueOnce({});
 
       await createNotification(
         'user123',
@@ -40,7 +50,7 @@ describe('Notification Helper', () => {
         'Chicken Curry'
       );
 
-      expect(mockCreate).toHaveBeenCalledWith({
+      expect(Notification.create).toHaveBeenCalledWith({
         userId: 'user123',
         type: 'recipe_added',
         message: 'Recipe added',
@@ -50,14 +60,21 @@ describe('Notification Helper', () => {
     });
 
     it('should log error but not throw when creation fails', async () => {
-      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-      vi.spyOn(Notification, 'create').mockRejectedValueOnce(new Error('Database error'));
+      const consoleErrorSpy = jest
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
+
+      Notification.create.mockRejectedValueOnce(new Error('Database error'));
 
       await expect(
         createNotification('user123', 'ingredient_added', 'Test message')
       ).resolves.not.toThrow();
 
-      expect(consoleErrorSpy).toHaveBeenCalledWith('Error creating notification:', expect.any(Error));
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        'Error creating notification:',
+        expect.any(Error)
+      );
+
       consoleErrorSpy.mockRestore();
     });
   });
@@ -73,12 +90,19 @@ describe('Notification Helper', () => {
       ['recipe_added', 'Chicken Curry', 'Chicken Curry was added to your recipes'],
       ['recipe_saved', 'Pasta', 'Pasta was saved'],
       ['recipe_favorited', 'Pizza', 'Pizza was added to favorites'],
-      ['recipe_unfavorited', 'Burger', 'Burger was removed from favorites and moved to saved recipes'],
+      [
+        'recipe_unfavorited',
+        'Burger',
+        'Burger was removed from favorites and moved to saved recipes'
+      ],
       ['recipe_updated', 'Salad', 'Salad was updated']
-    ])('should return correct message for type: %s', (type, name, expected) => {
-      const result = getNotificationMessage(type, name);
-      expect(result).toBe(expected);
-    });
+    ])(
+      'should return correct message for type: %s',
+      (type, name, expected) => {
+        const result = getNotificationMessage(type, name);
+        expect(result).toBe(expected);
+      }
+    );
 
     it('should return default message for unknown type', () => {
       const result = getNotificationMessage('unknown_type', 'Test Item');

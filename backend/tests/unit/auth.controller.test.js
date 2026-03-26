@@ -1,19 +1,22 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import jwt from 'jsonwebtoken';
-import { googleCallback, googleAuthFailed } from '../../src/controllers/auth.controller.js';
+import { describe, it, expect, beforeEach, jest } from "@jest/globals";
 
-vi.mock('jsonwebtoken', () => ({
+jest.unstable_mockModule("jsonwebtoken", () => ({
   default: {
-    sign: vi.fn()
-  }
+    sign: jest.fn(),
+  },
 }));
+
+const jwt = (await import("jsonwebtoken")).default;
+const { googleCallback, googleAuthFailed } = await import(
+  "../../src/controllers/auth.controller.js"
+);
 
 describe('Auth Controller', () => {
   let req;
   let res;
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    jest.clearAllMocks();
 
     req = {
       user: {
@@ -23,9 +26,9 @@ describe('Auth Controller', () => {
     };
 
     res = {
-      redirect: vi.fn(),
-      status: vi.fn().mockReturnThis(),
-      json: vi.fn()
+      redirect: jest.fn(),
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn()
     };
 
     process.env.JWT_SECRET = 'test-secret';
@@ -62,7 +65,7 @@ describe('Auth Controller', () => {
     });
 
     it('should redirect to login with error if jwt.sign throws', async () => {
-      const consoleSpy = vi
+      const consoleSpy = jest
         .spyOn(console, 'error')
         .mockImplementation(() => {});
 
@@ -82,7 +85,7 @@ describe('Auth Controller', () => {
     });
 
     it('should handle missing user gracefully', async () => {
-      const consoleSpy = vi
+      const consoleSpy = jest
         .spyOn(console, 'error')
         .mockImplementation(() => {});
 

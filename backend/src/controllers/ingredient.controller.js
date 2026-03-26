@@ -21,9 +21,8 @@ const addIngredient = async (req, res) => {
             return res.status(400).json({ message: "All fields are required." });
         }
 
-        const parsedQuantity = Number(quantity);
-        if (isNaN(parsedQuantity) || parsedQuantity <= 0) {
-            return res.status(400).json({ message: "Quantity must be a positive number." });
+        if (String(quantity).trim() === "") {
+            return res.status(400).json({ message: "Quantity is required." });
         }
 
         const addedDate = new Date(dateAdded);

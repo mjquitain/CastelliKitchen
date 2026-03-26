@@ -1,29 +1,35 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, jest } from "@jest/globals";
 import multer from "multer";
-import { fileFilter, handleMulterError } from "../../src/middleware/upload.js";
-import * as fileUploadUtils from "../../src/utils/fileUpload.js";
 
-vi.spyOn(fileUploadUtils, "isValidImageFile");
+jest.unstable_mockModule("../../src/utils/fileUpload.js", () => ({
+  isValidImageFile: jest.fn()
+}));
 
-const mockNext = vi.fn();
+const { fileFilter, handleMulterError } = await import(
+  "../../src/middleware/upload.js"
+);
+
+const fileUploadUtils = await import("../../src/utils/fileUpload.js");
+
+const mockNext = jest.fn();
+
 const mockRes = () => {
   const res = {};
-  res.status = vi.fn().mockReturnValue(res);
-  res.json = vi.fn().mockReturnValue(res);
+  res.status = jest.fn().mockReturnValue(res);
+  res.json = jest.fn().mockReturnValue(res);
   return res;
 };
 
-beforeEach(() => {
-  vi.clearAllMocks();
-});
-
 describe("upload.js middleware", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
 
   describe("fileFilter", () => {
     it("calls cb with true if file is valid image", () => {
       const file = { mimetype: "image/jpeg" };
       const req = {};
-      const cb = vi.fn();
+      const cb = jest.fn();
 
       fileUploadUtils.isValidImageFile.mockReturnValue(true);
 
@@ -36,14 +42,14 @@ describe("upload.js middleware", () => {
     it("calls cb with error if file is invalid", () => {
       const file = { mimetype: "application/pdf" };
       const req = {};
-      const cb = vi.fn();
+      const cb = jest.fn();
 
       fileUploadUtils.isValidImageFile.mockReturnValue(false);
 
       fileFilter(req, file, cb);
 
-      expect(cb).toHaveBeenCalled();
       const [err, allowed] = cb.mock.calls[0];
+
       expect(err).toBeInstanceOf(Error);
       expect(err.message).toBe(
         "Only image files (JPEG, JPG, PNG, WEBP) are allowed!"
@@ -102,5 +108,4 @@ describe("upload.js middleware", () => {
       expect(mockNext).toHaveBeenCalled();
     });
   });
-
 });
