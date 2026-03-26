@@ -4,7 +4,6 @@ import { SavedRecipe } from '../../src/models/savedrecipe.model.js';
 import { uploadFileToStorage, deleteFileFromStorage } from '../../src/utils/fileUpload.js';
 import { createNotification, getNotificationMessage } from '../../src/utils/notificationHelper.js';
 
-// --- Mock dependencies ---
 vi.mock('../../src/models/savedrecipe.model.js', () => ({
   SavedRecipe: {
     findOne: vi.fn(),
@@ -24,7 +23,6 @@ vi.mock('../../src/utils/notificationHelper.js', () => ({
   getNotificationMessage: vi.fn((type, title) => `${title} message`)
 }));
 
-// --- Mocked response ---
 const mockRes = () => {
   const res = {};
   res.status = vi.fn().mockReturnValue(res);
@@ -32,16 +30,12 @@ const mockRes = () => {
   return res;
 };
 
-// --- Reset mocks before each test ---
 beforeEach(() => {
   vi.clearAllMocks();
 });
 
 describe('SavedRecipe Controller', () => {
 
-  // -------------------------
-  // saveRecipe
-  // -------------------------
   describe('saveRecipe', () => {
     const reqBase = {
       user: { id: 'user123' },
@@ -116,9 +110,6 @@ describe('SavedRecipe Controller', () => {
     });
   });
 
-  // -------------------------
-  // getSavedRecipes
-  // -------------------------
   describe('getSavedRecipes', () => {
     it('returns saved recipes sorted', async () => {
       const req = { user: { id: 'user1' } };
@@ -143,9 +134,6 @@ describe('SavedRecipe Controller', () => {
     });
   });
 
-  // -------------------------
-  // getFavoriteRecipes
-  // -------------------------
   describe('getFavoriteRecipes', () => {
     it('returns only favorite recipes', async () => {
       const req = { user: { id: 'user1' } };
@@ -161,9 +149,6 @@ describe('SavedRecipe Controller', () => {
     });
   });
 
-  // -------------------------
-  // toggleFavoriteStatus
-  // -------------------------
   describe('toggleFavoriteStatus', () => {
     it('toggles favorite from false → true and creates notification', async () => {
       const req = { params: { id: 'id1' }, user: { id: 'user1' } };
@@ -189,9 +174,6 @@ describe('SavedRecipe Controller', () => {
     });
   });
 
-  // -------------------------
-  // deleteSavedRecipe
-  // -------------------------
   describe('deleteSavedRecipe', () => {
     it('deletes recipe with image', async () => {
       const req = { params: { id: 'id1' }, user: { id: 'user1' } };
@@ -216,9 +198,6 @@ describe('SavedRecipe Controller', () => {
     });
   });
 
-  // -------------------------
-  // updateSavedRecipe
-  // -------------------------
   describe('updateSavedRecipe', () => {
     it('updates recipe fields and creates notification', async () => {
       const req = {

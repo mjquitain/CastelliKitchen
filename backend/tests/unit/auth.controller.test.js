@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import jwt from 'jsonwebtoken';
 import { googleCallback, googleAuthFailed } from '../../src/controllers/auth.controller.js';
 
-// --- Mock jsonwebtoken (hoisted) ---
 vi.mock('jsonwebtoken', () => ({
   default: {
     sign: vi.fn()

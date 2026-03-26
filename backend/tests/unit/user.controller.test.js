@@ -9,7 +9,6 @@ import nodemailer from "nodemailer";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import { bucket } from "../../src/config/firebase.js";
-import * as fileUploadUtils from "../../src/utils/fileUpload.js";
 
 vi.mock("nodemailer");
 vi.mock("jsonwebtoken");

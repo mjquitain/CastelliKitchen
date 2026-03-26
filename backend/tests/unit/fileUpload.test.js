@@ -29,7 +29,6 @@ vi.mock('../../src/config/firebase.js', () => {
   };
 });
 
-// Typed mocks
 const mockUuid = vi.mocked(uuidv4);
 
 describe('File Upload Utils', () => {
@@ -39,15 +38,12 @@ describe('File Upload Utils', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    // Access fresh instances
     mockFileInstance = bucket.file();
     mockWriteStream = mockFileInstance.createWriteStream();
 
-    // Default behaviors
     mockFileInstance.makePublic.mockResolvedValue(undefined);
     mockFileInstance.delete.mockResolvedValue(undefined);
 
-    // Default stream behavior (chainable + async finish)
     mockWriteStream.on.mockImplementation(function (event, handler) {
       if (event === 'finish') {
         setImmediate(handler);

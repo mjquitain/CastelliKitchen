@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { Notification } from '../../src/models/notification.model.js';
 import { createNotification, getNotificationMessage } from '../../src/utils/notificationHelper.js';
 
-// Mock the Notification model
 vi.mock('../../src/models/notification.model.js');
 
 describe('Notification Helper', () => {

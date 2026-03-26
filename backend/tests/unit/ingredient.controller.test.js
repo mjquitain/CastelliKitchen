@@ -514,7 +514,6 @@ describe("Ingredient Controller", () => {
       vi.clearAllMocks();
     });
 
-    // ✅ SUCCESS CASE
     it("should update ingredient batch and return 200", async () => {
       req.body = { quantity: 5 };
 
@@ -534,7 +533,6 @@ describe("Ingredient Controller", () => {
       });
     });
 
-    // ✅ 404
     it("should return 404 if batch is not found", async () => {
       req.body = { quantity: 5 };
       IngredientBatch.findOneAndUpdate.mockResolvedValue(null);
@@ -545,7 +543,6 @@ describe("Ingredient Controller", () => {
       expect(res.json).toHaveBeenCalledWith({ message: "Ingredient batch not found." });
     });
 
-    // ✅ 500
     it("should handle failure by returning 500 and error message", async () => {
       req.body = { quantity: 5 };
       IngredientBatch.findOneAndUpdate.mockRejectedValue(new Error("DB error"));
@@ -556,7 +553,6 @@ describe("Ingredient Controller", () => {
       expect(res.json).toHaveBeenCalledWith({ message: "Error updating ingredient batch." });
     });
 
-    // ✅ ingredient_used notification
     it("should create 'ingredient_used' notification when marked as used", async () => {
       req.body = { isUsed: true };
 
@@ -580,7 +576,6 @@ describe("Ingredient Controller", () => {
       );
     });
 
-    // ✅ ingredient_edited notification
     it("should create 'ingredient_edited' notification when batch is updated", async () => {
       req.body = { quantity: 10 };
 
@@ -604,7 +599,6 @@ describe("Ingredient Controller", () => {
       );
     });
 
-    // ✅ notification failure should not break
     it("should still succeed even if notification fails", async () => {
       req.body = { quantity: 10 };
 
@@ -622,7 +616,6 @@ describe("Ingredient Controller", () => {
       expect(res.json).toHaveBeenCalled();
     });
 
-    // ✅ invalid quantity
     it("should return 400 for invalid quantity", async () => {
       req.body = { quantity: -5 };
 
@@ -632,7 +625,6 @@ describe("Ingredient Controller", () => {
       expect(res.json).toHaveBeenCalledWith({ message: "Quantity must be a positive number." });
     });
 
-    // ✅ empty body
     it("should return 400 if update body is empty", async () => {
       req.body = {};
 
@@ -642,7 +634,6 @@ describe("Ingredient Controller", () => {
       expect(res.json).toHaveBeenCalledWith({ message: "At least one field is required to update." });
     });
 
-    // ✅ invalid date
     it("should return 400 for invalid date format", async () => {
       req.body = { dateAdded: "invalid-date" };
 
@@ -652,7 +643,6 @@ describe("Ingredient Controller", () => {
       expect(res.json).toHaveBeenCalledWith({ message: "Invalid date format." });
     });
 
-    // ✅ expiry before dateAdded
     it("should return 400 if expiryDate is before dateAdded", async () => {
       req.body = {
         dateAdded: "2025-01-10",

@@ -11,7 +11,6 @@ import {
 
 import { Notification } from '../../src/models/notification.model.js';
 
-// --- Mock Notification model (hoisted) ---
 vi.mock('../../src/models/notification.model.js', () => ({
   Notification: {
     find: vi.fn(),
@@ -44,9 +43,6 @@ describe('Notification Controller', () => {
     };
   });
 
-  // -------------------------
-  // getNotifications
-  // -------------------------
   describe('getNotifications', () => {
     it('should fetch notifications with default limit', async () => {
       const mockChain = {
@@ -128,9 +124,6 @@ describe('Notification Controller', () => {
     });
   });
 
-  // -------------------------
-  // createNotification
-  // -------------------------
   describe('createNotification', () => {
     it('should create notification', async () => {
       req.body = {
@@ -177,9 +170,6 @@ describe('Notification Controller', () => {
     });
   });
 
-  // -------------------------
-  // markAsRead
-  // -------------------------
   describe('markAsRead', () => {
     it('should mark notification as read', async () => {
       req.params.id = 'notif1';
@@ -214,9 +204,6 @@ describe('Notification Controller', () => {
     });
   });
 
-  // -------------------------
-  // markAllAsRead
-  // -------------------------
   describe('markAllAsRead', () => {
     it('should mark all as read', async () => {
       await markAllAsRead(req, res);
@@ -238,9 +225,6 @@ describe('Notification Controller', () => {
     });
   });
 
-  // -------------------------
-  // deleteNotification
-  // -------------------------
   describe('deleteNotification', () => {
     it('should delete notification', async () => {
       req.params.id = 'notif1';
@@ -269,9 +253,6 @@ describe('Notification Controller', () => {
     });
   });
 
-  // -------------------------
-  // clearAllNotifications
-  // -------------------------
   describe('clearAllNotifications', () => {
     it('should delete all notifications', async () => {
       await clearAllNotifications(req, res);
@@ -292,9 +273,6 @@ describe('Notification Controller', () => {
     });
   });
 
-  // -------------------------
-  // getUnreadCount
-  // -------------------------
   describe('getUnreadCount', () => {
     it('should return unread count', async () => {
       Notification.countDocuments.mockResolvedValue(5);

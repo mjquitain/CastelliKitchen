@@ -14,7 +14,6 @@ import {
   deleteFileFromStorage
 } from '../../src/utils/fileUpload.js';
 
-// --- Mock dependencies (hoisted) ---
 vi.mock('../../src/models/recipe.model.js', () => ({
   Recipe: {
     create: vi.fn(),
@@ -72,9 +71,6 @@ describe('Recipe Controller', () => {
     mockFile.makePublic.mockResolvedValue();
   });
 
-  // -------------------------
-  // addRecipe
-  // -------------------------
   describe('addRecipe', () => {
     it('should create recipe without image', async () => {
       req.body = { title: 'Test Recipe' };
@@ -134,9 +130,6 @@ describe('Recipe Controller', () => {
     });
   });
 
-  // -------------------------
-  // getRecipes
-  // -------------------------
   describe('getRecipes', () => {
     it('should return all recipes', async () => {
       Recipe.find.mockResolvedValue([{ id: 1 }]);
@@ -155,9 +148,6 @@ describe('Recipe Controller', () => {
     });
   });
 
-  // -------------------------
-  // getRecipeById
-  // -------------------------
   describe('getRecipeById', () => {
     it('should return recipe', async () => {
       req.params.id = '1';
@@ -180,9 +170,6 @@ describe('Recipe Controller', () => {
     });
   });
 
-  // -------------------------
-  // updateRecipe
-  // -------------------------
   describe('updateRecipe', () => {
     it('should update recipe without new image', async () => {
       req.params.id = '1';
@@ -269,9 +256,6 @@ describe('Recipe Controller', () => {
     });
   });
 
-  // -------------------------
-  // deleteRecipe
-  // -------------------------
   describe('deleteRecipe', () => {
     it('should delete recipe', async () => {
       req.params.id = '1';

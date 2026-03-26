@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { filterByIngredient, searchByName, lookupById } from '../../src/controllers/mealdb.controller.js'; 
 
-// Mock the global fetch
 global.fetch = vi.fn();
 
 describe('Meal API Handlers', () => {
@@ -10,7 +9,6 @@ describe('Meal API Handlers', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     
-    // Mock request and response objects
     mockReq = {
       query: {},
       params: {}

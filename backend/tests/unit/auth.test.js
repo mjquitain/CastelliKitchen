@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import jwt from "jsonwebtoken";
 import authMiddleware from "../../src/middleware/auth.js";
 
-// --- Correctly mock default export ---
 vi.mock("jsonwebtoken", () => ({
   default: {
     verify: vi.fn()
