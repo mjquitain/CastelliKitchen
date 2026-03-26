@@ -3,7 +3,7 @@ import { isValidImageFile } from "../utils/fileUpload.js";
 
 const storage = multer.memoryStorage();
 
-const fileFilter = (req, file, cb) => {
+export const fileFilter = (req, file, cb) => {
   if (isValidImageFile(file)) {
     cb(null, true);
   } else {

@@ -206,6 +206,8 @@ const updateIngredient = async (req, res) => {
     }
 };
 
+
+
 const updateIngredientBatch = async (req, res) => {
     try {
         if (!req.params.batchId) {
@@ -244,32 +246,24 @@ const updateIngredientBatch = async (req, res) => {
             return res.status(400).json({ message: "Expiry date cannot be before date added." });
         }
 
-        if (typeof isUsed === "boolean") updateData.isUsed = isUsed;
-
-        const beforeUpdate = await IngredientBatch.findOne({
-            userId: req.user.id,
-            _id: req.params.batchId
-        }).populate('ingredientId');
+        if (typeof isUsed === "boolean") {
+            updateData.isUsed = isUsed;
+        }
 
         const ingredientBatch = await IngredientBatch.findOneAndUpdate(
             { userId: req.user.id, _id: req.params.batchId },
             updateData,
             { new: true, runValidators: true }
-        ).populate('ingredientId');
-
-        // const afterUpdate = await IngredientBatch.findOne({
-        //     userId: req.user.id,
-        //     _id: req.params.batchId
-        // });
+        );
 
         if (!ingredientBatch) {
             return res.status(404).json({ message: "Ingredient batch not found." });
         }
 
-        try {
-            const ingredientName = ingredientBatch.ingredientId?.name || 'Ingredient';
+        const ingredientName = ingredientBatch?.ingredientId?.name || 'Ingredient';
 
-            if (typeof isUsed === 'boolean' && isUsed === true && beforeUpdate && beforeUpdate.isUsed === false) {
+        try {
+            if (isUsed === true) {
                 await createNotification(
                     req.user.id,
                     'ingredient_used',
@@ -277,8 +271,7 @@ const updateIngredientBatch = async (req, res) => {
                     ingredientBatch.ingredientId?._id,
                     ingredientName
                 );
-            }
-            else if (quantity !== undefined || dateAdded !== undefined || expiryDate !== undefined) {
+            } else if (Object.keys(updateData).length > 0) {
                 await createNotification(
                     req.user.id,
                     'ingredient_edited',
@@ -287,16 +280,18 @@ const updateIngredientBatch = async (req, res) => {
                     ingredientName
                 );
             }
-        } catch (notifError) {
-            console.error('Failed to create notification:', notifError);
+        } catch (err) {
+            console.error('Failed to create notification:', err);
         }
 
-        res.status(200).json(ingredientBatch);
+        return res.status(200).json(ingredientBatch);
+
     } catch (error) {
-        console.error("Error updating batch:");
-        res.status(500).json({ message: "Error updating ingredient batch." });
-    };
+        console.error("Error updating batch:", error);
+        return res.status(500).json({ message: "Error updating ingredient batch." });
+    }
 };
+
 
 // delete
 const deleteIngredient = async (req, res) => {

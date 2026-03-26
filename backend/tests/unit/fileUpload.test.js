@@ -3,12 +3,10 @@ import { v4 as uuidv4 } from 'uuid';
 import { uploadFileToStorage, deleteFileFromStorage, isValidImageFile } from '../../src/utils/fileUpload.js';
 import { bucket } from '../../src/config/firebase.js';
 
-// --- Mock uuid (hoisted) ---
 vi.mock('uuid', () => ({
   v4: vi.fn()
 }));
 
-// --- Mock firebase bucket (hoisted) ---
 vi.mock('../../src/config/firebase.js', () => {
   const mockWriteStream = {
     on: vi.fn(),
@@ -60,9 +58,6 @@ describe('File Upload Utils', () => {
     mockWriteStream.end.mockImplementation(() => {});
   });
 
-  // -------------------------
-  // uploadFileToStorage
-  // -------------------------
   describe('uploadFileToStorage', () => {
     it('uploads file successfully to default (recipes) folder', async () => {
       const file = {
@@ -145,9 +140,6 @@ describe('File Upload Utils', () => {
     });
   });
 
-  // -------------------------
-  // deleteFileFromStorage
-  // -------------------------
   describe('deleteFileFromStorage', () => {
     it('deletes file successfully', async () => {
       const url =
@@ -186,9 +178,6 @@ describe('File Upload Utils', () => {
     });
   });
 
-  // -------------------------
-  // isValidImageFile
-  // -------------------------
   describe('isValidImageFile', () => {
     it.each([
       ['image/jpeg', true],

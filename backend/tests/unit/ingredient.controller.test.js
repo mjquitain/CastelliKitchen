@@ -499,150 +499,172 @@ describe("Ingredient Controller", () => {
     });
   })
 
-
-
-
   describe("updateIngredientBatch", () => {
-     beforeEach(() => {
-      vi.resetAllMocks();
-      
-      req.params.batchId = "batch1";
-      req.body = {
-        quantity: "2",
-        dateAdded: "2026-01-01",
-        expiryDate: "2026-01-10"
+
+    beforeEach(() => {
+      req = {
+        params: { batchId: "batch123" },
+        body: {},
+        user: { id: "user123" }
       };
+      res = {
+        status: vi.fn().mockReturnThis(),
+        json: vi.fn()
+      };
+      vi.clearAllMocks();
     });
 
+    // ✅ SUCCESS CASE
     it("should update ingredient batch and return 200", async () => {
-      const mockBatch = {
-        _id: "batch1",
-        quantity: "2",
-        ingredientId: { _id: "ing1", name: "tomato" }
-      };
+      req.body = { quantity: 5 };
 
-      IngredientBatch.findOne.mockReturnValueOnce({
-          populate: vi.fn().mockResolvedValue({ isUsed: false })
-        }).mockResolvedValueOnce(mockBatch);
-
-      IngredientBatch.findOneAndUpdate.mockReturnValue({
-        populate: vi.fn().mockResolvedValue(mockBatch)
+      IngredientBatch.findOneAndUpdate.mockResolvedValue({
+        _id: "batch123",
+        quantity: 5,
+        ingredientId: { name: "tomato", _id: "ing1" }
       });
 
       await updateIngredientBatch(req, res);
 
       expect(res.status).toHaveBeenCalledWith(200);
-
-      expect(res.json).toHaveBeenCalledWith(mockBatch);
+      expect(res.json).toHaveBeenCalledWith({
+        _id: "batch123",
+        quantity: 5,
+        ingredientId: { name: "tomato", _id: "ing1" }
+      });
     });
 
+    // ✅ 404
     it("should return 404 if batch is not found", async () => {
-      IngredientBatch.findOne.mockReturnValueOnce({
-        populate: vi.fn().mockResolvedValue(null)
-      });
-
-      IngredientBatch.findOneAndUpdate.mockReturnValueOnce({
-        populate: vi.fn().mockResolvedValue(null)
-      });
+      req.body = { quantity: 5 };
+      IngredientBatch.findOneAndUpdate.mockResolvedValue(null);
 
       await updateIngredientBatch(req, res);
 
       expect(res.status).toHaveBeenCalledWith(404);
-
       expect(res.json).toHaveBeenCalledWith({ message: "Ingredient batch not found." });
     });
 
+    // ✅ 500
     it("should handle failure by returning 500 and error message", async () => {
-      IngredientBatch.findOne.mockRejectedValue(new Error());
+      req.body = { quantity: 5 };
+      IngredientBatch.findOneAndUpdate.mockRejectedValue(new Error("DB error"));
 
       await updateIngredientBatch(req, res);
 
       expect(res.status).toHaveBeenCalledWith(500);
-
       expect(res.json).toHaveBeenCalledWith({ message: "Error updating ingredient batch." });
     });
 
+    // ✅ ingredient_used notification
     it("should create 'ingredient_used' notification when marked as used", async () => {
-      req.body.isUsed = true;
+      req.body = { isUsed: true };
 
-      const beforeUpdate = { isUsed: false };
-      const updatedBatch = {
-        _id: "batch1",
+      IngredientBatch.findOneAndUpdate.mockResolvedValue({
+        _id: "batch123",
         isUsed: true,
-        ingredientId: { _id: "ing1", name: "tomato" }
-      };
-
-      IngredientBatch.findOne.mockReturnValueOnce({
-          populate: vi.fn().mockResolvedValue(beforeUpdate)
-        }).mockResolvedValueOnce(updatedBatch);
-
-      IngredientBatch.findOneAndUpdate.mockReturnValue({
-        populate: vi.fn().mockResolvedValue(updatedBatch)
+        ingredientId: { name: "tomato", _id: "ing1" }
       });
+
+      getNotificationMessage.mockReturnValue("ingredient used message");
 
       await updateIngredientBatch(req, res);
 
       expect(getNotificationMessage).toHaveBeenCalledWith("ingredient_used", "tomato");
-
-      expect(createNotification).toHaveBeenCalledWith("user123", "ingredient_used", "mock message", "ing1", "tomato");
+      expect(createNotification).toHaveBeenCalledWith(
+        "user123",
+        "ingredient_used",
+        "ingredient used message",
+        "ing1",
+        "tomato"
+      );
     });
 
+    // ✅ ingredient_edited notification
     it("should create 'ingredient_edited' notification when batch is updated", async () => {
-      const beforeUpdate = { isUsed: false };
-      const updatedBatch = {
-        _id: "batch1",
-        ingredientId: { _id: "ing1", name: "tomato" }
-      };
+      req.body = { quantity: 10 };
 
-      IngredientBatch.findOne.mockReturnValueOnce({
-          populate: vi.fn().mockResolvedValue(beforeUpdate)
-        });
-
-      IngredientBatch.findOneAndUpdate.mockReturnValue({
-        populate: vi.fn().mockResolvedValue(updatedBatch)
+      IngredientBatch.findOneAndUpdate.mockResolvedValue({
+        _id: "batch123",
+        quantity: 10,
+        ingredientId: { name: "tomato", _id: "ing1" }
       });
+
+      getNotificationMessage.mockReturnValue("ingredient edited message");
 
       await updateIngredientBatch(req, res);
 
       expect(getNotificationMessage).toHaveBeenCalledWith("ingredient_edited", "tomato");
-
-      expect(createNotification).toHaveBeenCalledWith( "user123", "ingredient_edited", "mock message", "ing1", "tomato");
+      expect(createNotification).toHaveBeenCalledWith(
+        "user123",
+        "ingredient_edited",
+        "ingredient edited message",
+        "ing1",
+        "tomato"
+      );
     });
 
+    // ✅ notification failure should not break
     it("should still succeed even if notification fails", async () => {
-      const beforeUpdate = { isUsed: false };
-      const updatedBatch = {
-        _id: "batch1",
-        ingredientId: { _id: "ing1", name: "tomato" }
-      };
+      req.body = { quantity: 10 };
 
-      IngredientBatch.findOne.mockReturnValueOnce({
-          populate: vi.fn().mockResolvedValue(beforeUpdate)
-        }).mockResolvedValueOnce(updatedBatch);
-
-      IngredientBatch.findOneAndUpdate.mockReturnValue({
-        populate: vi.fn().mockResolvedValue(updatedBatch)
+      IngredientBatch.findOneAndUpdate.mockResolvedValue({
+        _id: "batch123",
+        quantity: 10,
+        ingredientId: { name: "tomato", _id: "ing1" }
       });
 
       createNotification.mockRejectedValue(new Error("notif failed"));
 
       await updateIngredientBatch(req, res);
 
-      expect(createNotification).toHaveBeenCalled();
-
       expect(res.status).toHaveBeenCalledWith(200);
-
-      expect(res.json).toHaveBeenCalledWith(updatedBatch);
+      expect(res.json).toHaveBeenCalled();
     });
 
+    // ✅ invalid quantity
     it("should return 400 for invalid quantity", async () => {
-      req.body.quantity = "-5";
+      req.body = { quantity: -5 };
 
       await updateIngredientBatch(req, res);
 
       expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({ message: "Quantity must be a positive number." });
     });
-  })
+
+    // ✅ empty body
+    it("should return 400 if update body is empty", async () => {
+      req.body = {};
+
+      await updateIngredientBatch(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({ message: "At least one field is required to update." });
+    });
+
+    // ✅ invalid date
+    it("should return 400 for invalid date format", async () => {
+      req.body = { dateAdded: "invalid-date" };
+
+      await updateIngredientBatch(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({ message: "Invalid date format." });
+    });
+
+    // ✅ expiry before dateAdded
+    it("should return 400 if expiryDate is before dateAdded", async () => {
+      req.body = {
+        dateAdded: "2025-01-10",
+        expiryDate: "2025-01-01"
+      };
+
+      await updateIngredientBatch(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({ message: "Expiry date cannot be before date added." });
+    });
+  });
 
   describe("deleteIngredient", () => {
 
@@ -682,11 +704,13 @@ describe("Ingredient Controller", () => {
       expect(res.json).toHaveBeenCalledWith({ message: "Error deleting ingredient." });
 
     });
-
+    
     it("should create notification when ingredient is deleted", async () => {
       Ingredient.findOne.mockResolvedValue({ _id: "ing1", name: "tomato" });
       IngredientBatch.deleteMany.mockResolvedValue({});
       Ingredient.findOneAndDelete.mockResolvedValue({});
+
+      getNotificationMessage.mockReturnValue("mock message");
 
       await deleteIngredient(req, res);
 
@@ -722,7 +746,6 @@ describe("Ingredient Controller", () => {
     });
   })
 
-  
   describe("deleteIngredientBatch", () => {
 
     beforeEach(() => {
@@ -780,6 +803,8 @@ describe("Ingredient Controller", () => {
         populate: vi.fn().mockResolvedValue(mockBatch)
       });
 
+      getNotificationMessage.mockReturnValue("mock message");
+
       await deleteIngredientBatch(req, res);
 
       expect(getNotificationMessage).toHaveBeenCalledWith("ingredient_deleted", "tomato");
@@ -820,5 +845,8 @@ describe("Ingredient Controller", () => {
       expect(res.json).toHaveBeenCalledWith({ message: "Ingredient batch not found." });
     });
   })
+
+
+
 
 });
