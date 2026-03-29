@@ -1,5 +1,6 @@
 import { mealdbApi } from '@/api/recipes';
-import { RecipeDetailModal } from "@/components/modals/RecipeModal";
+import { openRecipeActionModal } from '@/components/modals/ActionModal';
+import { openRecipeDetailModal } from "@/components/modals/RecipeModal";
 import { RecipeCard } from "@/components/RecipeCard";
 import { useRecipes } from '@/hooks/useRecipes';
 import api, { getToken } from '@/lib/api';
@@ -20,7 +21,6 @@ import {
     Title,
     rem
 } from '@mantine/core';
-import { modals } from "@mantine/modals";
 import { useRouterState } from '@tanstack/react-router';
 import { Blocks, ChefHat, Heart, Leaf, Plus, Search, ShoppingBag, X } from 'lucide-react';
 import { useEffect, useState, type ChangeEvent } from 'react';
@@ -46,11 +46,8 @@ function HomePage() {
     const [currentIngredient, setCurrentIngredient] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const [hasSearched, setHasSearched] = useState(false);
-    const [expiringIngredients, setExpiringIngredients] = useState<string[]>([]);
     const [suggestedRecipes, setSuggestedRecipes] = useState<any[]>([]);
-    const [selectedRecipe, setSelectedRecipe] = useState<MealRecipe | null>(null);
-    const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-    const [userIngredients, setUserIngredients] = useState<any[]>([]);
+    const [userIngredients] = useState<any[]>([]);
     const [totalMealDBCount, setTotalMealDBCount] = useState<number>(0);
     useRouterState()
     const isLoggedIn = !!getToken()
@@ -62,7 +59,6 @@ function HomePage() {
     const fetchRecipesByIngredients = async (): Promise<void> => {
         setHasSearched(true);
         setActiveTab("Generated Recipes");
-        setIsDetailModalOpen(false);
         setRecipes([]);
 
         if (ingredients.length === 0) {
@@ -147,8 +143,6 @@ function HomePage() {
                 }
             });
 
-            setExpiringIngredients(soonExpiringIngredients);
-
             if (soonExpiringIngredients.length === 0) {
                 setSuggestedRecipes([]);
                 return;
@@ -182,37 +176,8 @@ function HomePage() {
 
         if (isLoggedIn) {
             fetchSuggestedRecipes();
-            fetchUserIngredients();
         }
     }, []);
-
-    const fetchUserIngredients = async () => {
-        try {
-            const response = await api.get('/ingredients');
-            const data = response.data;
-
-            let ingredients = [];
-            if (Array.isArray(data)) {
-                ingredients = data;
-            } else if (data.ingredients) {
-                ingredients = data.ingredients;
-            } else if (data.data) {
-                ingredients = data.data;
-            }
-
-            const availableIngredients = ingredients.filter((ingredient: any) => {
-                if (!ingredient.batches || ingredient.batches.length === 0) return false;
-                return ingredient.batches.some((batch: any) =>
-                    !batch.isUsed && !batch.isDeleted
-                );
-            });
-
-            setUserIngredients(availableIngredients);
-        } catch (error) {
-            console.error("Error fetching user ingredients:", error);
-            setUserIngredients([]);
-        }
-    };
 
     const addIngredient = (): void => {
         if (currentIngredient.trim() !== "") {
@@ -252,29 +217,12 @@ function HomePage() {
             }
 
             if (recipe) {
-                setSelectedRecipe(recipe);
-                setIsDetailModalOpen(true);
+                openRecipeDetailModal(recipe);
             }
 
         } catch (error) {
             console.error("Error fetching recipe details:", error);
         }
-    };
-
-    const handleSaveRecipe = async (recipe: MealRecipe) => {
-        await handleSave(recipe);
-    };
-
-    const handleUnsaveRecipe = async (recipe: MealRecipe) => {
-        await handleDelete(recipe);
-    };
-
-    const handleFavoriteRecipe = async (recipe: MealRecipe) => {
-        await handleFavorite(recipe);
-    };
-
-    const handleUnfavoriteRecipe = async (recipe: MealRecipe) => {
-        await handleFavorite(recipe);
     };
 
     const isRecipeSaved = (id: string) => savedRecipes.some(r => r.idMeal === id);
@@ -284,97 +232,14 @@ function HomePage() {
         );
 
     const openActionModal = (recipe: MealRecipe, action: ActionType) => {
-        if (!isLoggedIn) {
-            modals.open({
-                title: <Title size="lg">Sign in required</Title>,
-                centered: true,
-                radius: "md",
-                children: (
-                    <Stack gap="md">
-                        <Text size="sm" ta="center" c="dimmed">
-                            You need to be logged in to {action === 'save' ? 'save' : 'favorite'} recipes.
-                        </Text>
-                        <Group justify="center" gap="sm">
-                            <Button
-                                component="a"
-                                href="/login"
-                                color="#8a9a7b"
-                                onClick={() => modals.closeAll()}
-                            >
-                                Sign In
-                            </Button>
-                            <Button
-                                component="a"
-                                href="/signup"
-                                variant="outline"
-                                color="#8a9a7b"
-                                onClick={() => modals.closeAll()}
-                            >
-                                Sign Up
-                            </Button>
-                        </Group>
-                    </Stack>
-                ),
-            });
-            return;
-        }
-
-        const isSaved = isRecipeSaved(recipe.idMeal);
-        const isFavorited = isRecipeFavorite(recipe.idMeal);
-
-        const isRemoveAction = (action === 'save' && isSaved) || (action === 'favorite' && isFavorited);
-
-        const actionLabel = action === 'save' ? 'Saved Recipes' : 'Favorite Recipes';
-
-        let title: string;
-        let messageComponent: React.ReactNode;
-        let confirmLabel: string;
-        let color: 'green' | 'red' | 'orange';
-
-        if (isRemoveAction) {
-            title = `Remove recipe from ${actionLabel}?`;
-            messageComponent = (
-                <Text size="sm">
-                    Are you sure you want to remove "{recipe.strMeal}" from your {actionLabel}?
-                </Text>
-            );
-            confirmLabel = 'Yes, Remove It';
-            color = 'red';
-        } else {
-            title = `Add recipe to ${actionLabel}?`;
-            confirmLabel = `Yes, ${action === 'save' ? 'Save' : 'Favorite'}`;
-
-            if (action === 'favorite' && isSaved) {
-                messageComponent = (
-                    <Text size="sm" c="orange">
-                        Favoriting "{recipe.strMeal}" will automatically remove it from your Saved Recipes section. Continue?
-                    </Text>
-                );
-                color = 'green';
-            } else {
-                messageComponent = (
-                    <Text size="sm">
-                        Confirm you want to {action} "{recipe.strMeal}".
-                    </Text>
-                );
-                color = action === 'save' ? 'green' : 'red';
-            }
-        }
-
-        modals.openConfirmModal({
-            title: <Title order={4} ta="center">{title}</Title>,
-            centered: true,
-            confirmProps: { color: color, children: confirmLabel },
-            labels: { cancel: 'Cancel', confirm: confirmLabel },
-            children: messageComponent,
-
-            onConfirm: () => {
-                if (action === 'save') {
-                    isSaved ? handleUnsaveRecipe(recipe) : handleSaveRecipe(recipe);
-                } else {
-                    isFavorited ? handleUnfavoriteRecipe(recipe) : handleFavoriteRecipe(recipe);
-                }
-            },
+        openRecipeActionModal({
+            recipeToActOn: recipe,
+            currentActionType: action,
+            isRecipeSaved,
+            isRecipeFavorite,
+            handleSave,
+            handleFavorite,
+            handleDelete,
         });
     };
 
@@ -660,11 +525,6 @@ function HomePage() {
                         </Paper>
                     </Tabs.Panel>
                 </Tabs>
-                <RecipeDetailModal
-                    opened={isDetailModalOpen}
-                    onClose={() => setIsDetailModalOpen(false)}
-                    selectedRecipe={selectedRecipe}
-                />
             </Stack>
         </Stack>
     );

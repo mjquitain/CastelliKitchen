@@ -11,6 +11,8 @@ import { MantineProvider } from '@mantine/core'
 import '@mantine/core/styles.css'
 import '@mantine/dates/styles.css'
 import { ModalsProvider } from '@mantine/modals'
+import { Notifications } from '@mantine/notifications'
+import '@mantine/notifications/styles.css'
 import reportWebVitals from './reportWebVitals.ts'
 import './styles.css'
 
@@ -43,6 +45,7 @@ if (rootElement && !rootElement.innerHTML) {
     <StrictMode>
       <MantineProvider>
         <ModalsProvider>
+          <Notifications position="bottom-right" />
           <TanStackQueryProvider.Provider {...TanStackQueryProviderContext}>
             <RouterProvider router={router} />
           </TanStackQueryProvider.Provider>

@@ -226,6 +226,21 @@ function LoginPage() {
                     >
                         Continue with Google
                     </Button>
+
+                    <Flex direction="row" justify="center" align="center">
+                        <Text mt="md" size="sm" style={{ color: '#666' }}>
+                            Already have an account?{' '}
+                            <Anchor
+                                type="button"
+                                mt="md"
+                                size="sm"
+                                onClick={() => navigate({ to: '/signup' })}
+                                style={{ color: '#97A97C' }}
+                            >
+                                Sign up
+                            </Anchor>
+                        </Text>
+                    </Flex>
                 </Paper>
             </Container>
         </Box >

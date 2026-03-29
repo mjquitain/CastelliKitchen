@@ -287,6 +287,7 @@ function SignUpPage() {
                                     setConfirmPassword(e.currentTarget.value);
                                     setPasswordError('');
                                 }}
+                                error={passwordError}
                                 disabled={isPending}
                                 styles={{
                                     label: {

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { changePassword, deleteAccount, forgotPassword, getProfile, loginRequest, registerRequest, resendVerification, resetPassword, updateProfile, uploadAvatar, verifyEmail } from '../api/user';
+import { changePassword, deleteAccount, forgotPassword, getProfile, loginRequest, logoutRequest, registerRequest, resendVerification, resetPassword, updateProfile, uploadAvatar, verifyEmail } from '../api/user';
 import { getToken } from '../lib/api';
 
 export const useLogin = () => {
@@ -56,6 +56,9 @@ export const useProfile = () => {
         mutationFn: deleteAccount,
     });
 
+    const logoutMutation = useMutation({
+        mutationFn: logoutRequest,
+    });
     const passwordMutation = useMutation({
         mutationFn: changePassword,
     });
@@ -69,6 +72,7 @@ export const useProfile = () => {
         isUploadingAvatar: avatarMutation.isPending,
         deleteAccount: deleteMutation.mutate,
         isDeletingAccount: deleteMutation.isPending,
+        isLoggingOut: logoutMutation.isPending,
         changePassword: passwordMutation.mutate,
         isChangingPassword: passwordMutation.isPending,
         changePasswordError: passwordMutation.error,
