@@ -31,7 +31,7 @@ if (process.env.NODE_ENV === "production") {
     // dev
     app.use(
         helmet({
-            contentSecurityPolicy: false, 
+            contentSecurityPolicy: false,
             xssFilter: true,
             noSniff: true
         })
@@ -39,7 +39,25 @@ if (process.env.NODE_ENV === "production") {
 }
 
 app.use(cors({
-    origin: "http://localhost:3000",
+    origin: (origin, callback) => {
+        const defaultOrigins = ["http://localhost:3000", "http://localhost:5173"];
+        const envOrigins = (process.env.CORS_ALLOWED_ORIGINS || process.env.FRONTEND_URL || "")
+            .split(",")
+            .map((value) => value.trim())
+            .filter(Boolean);
+        const allowedOrigins = [...new Set([...defaultOrigins, ...envOrigins])];
+
+        // Allow server-to-server tools and same-origin requests with no Origin header.
+        if (!origin) {
+            return callback(null, true);
+        }
+
+        if (allowedOrigins.includes(origin)) {
+            return callback(null, true);
+        }
+
+        return callback(new Error("Not allowed by CORS"));
+    },
     credentials: true,
     methods: ["GET", "POST", "PATCH", "DELETE", "PUT"],
     allowedHeaders: ["Content-Type", "Authorization"]
