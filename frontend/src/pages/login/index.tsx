@@ -4,6 +4,8 @@ import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api/v1';
+const googleAuthUrl = `${apiBaseUrl.replace(/\/$/, '')}/auth/google`;
 
 function LoginPage() {
     const [email, setEmail] = useState('');
@@ -217,7 +219,7 @@ function LoginPage() {
                             </svg>
                         }
                         onClick={() => {
-                            window.location.href = 'http://localhost:5000/api/v1/auth/google';
+                            window.location.href = googleAuthUrl;
                         }}
                         style={{
                             borderColor: '#dadce0',
