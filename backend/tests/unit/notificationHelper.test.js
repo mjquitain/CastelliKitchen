@@ -90,11 +90,7 @@ describe('Notification Helper', () => {
       ['recipe_added', 'Chicken Curry', 'Chicken Curry was added to your recipes'],
       ['recipe_saved', 'Pasta', 'Pasta was saved'],
       ['recipe_favorited', 'Pizza', 'Pizza was added to favorites'],
-      [
-        'recipe_unfavorited',
-        'Burger',
-        'Burger was removed from favorites and moved to saved recipes'
-      ],
+      ['recipe_unfavorited', 'Burger', 'Burger was removed from favorites and moved to saved recipes'],
       ['recipe_updated', 'Salad', 'Salad was updated']
     ])(
       'should return correct message for type: %s',
