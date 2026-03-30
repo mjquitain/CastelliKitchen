@@ -1,7 +1,7 @@
 
 import { mealdbApi } from '@/api/recipes';
-import { RecipeActionModal } from "@/components/modals/ActionModal";
-import { RecipeDetailModal } from "@/components/modals/RecipeModal";
+import { openRecipeActionModal } from "@/components/modals/ActionModal";
+import { openRecipeDetailModal } from "@/components/modals/RecipeModal";
 import { RecipeCard } from "@/components/RecipeCard";
 import { useRecipes } from "@/hooks/useRecipes";
 import api from "@/lib/api";
@@ -52,7 +52,6 @@ function RecipePage() {
     const {
         savedRecipes = [],
         favoriteRecipes = [],
-        isLoading: isApiLoading,
         handleSave,
         handleFavorite,
         handleDelete,
@@ -62,17 +61,11 @@ function RecipePage() {
     const [selectedIngredients, setSelectedIngredients] = useState<string[]>([]);
     const [recipes, setRecipes] = useState<MealRecipe[]>([]);
     const [isInternalLoading, setIsInternalLoading] = useState(false);
-    const [hasSearched, setHasSearched] = useState(false);
-    const [selectedRecipe, setSelectedRecipe] = useState<MealRecipe | null>(null);
-    const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
     const [savedSearch, setSavedSearch] = useState("");
     const [savedCategory, setSavedCategory] = useState<string | null>(null);
     const [favSearch, setFavSearch] = useState("");
     const [favCategory, setFavCategory] = useState<string | null>(null);
     const [RecipeFormOpened, setRecipeFormOpened] = useState(false);
-    const [isActionModalOpen, setIsActionModalOpen] = useState(false);
-    const [recipeToActOn, setRecipeToActOn] = useState<MealRecipe | null>(null);
-    const [currentActionType, setCurrentActionType] = useState<ActionType>('save');
     const [activeTab, setActiveTab] = useState<string | null>("generated recipes");
     const [ingredientsList, setIngredientsList] = useState<Ingredient[]>([]);
     const [isIngredientsLoading, setIsIngredientsLoading] = useState(true);
@@ -185,11 +178,9 @@ function RecipePage() {
     const fetchRecipes = async () => {
         if (selectedIngredients.length === 0) {
             setRecipes([]);
-            setHasSearched(false);
             return;
         }
 
-        setHasSearched(true);
         setIsInternalLoading(true);
 
         try {
@@ -240,8 +231,7 @@ function RecipePage() {
             }
 
             if (recipe) {
-                setSelectedRecipe(recipe);
-                setIsDetailModalOpen(true);
+                openRecipeDetailModal(recipe);
             }
 
         } catch (error) {
@@ -250,9 +240,15 @@ function RecipePage() {
     };
 
     const openActionModal = (recipe: MealRecipe, action: ActionType) => {
-        setRecipeToActOn(recipe);
-        setCurrentActionType(action);
-        setIsActionModalOpen(true);
+        openRecipeActionModal({
+            recipeToActOn: recipe,
+            currentActionType: action,
+            isRecipeSaved,
+            isRecipeFavorite,
+            handleSave,
+            handleFavorite,
+            handleDelete,
+        });
     };
 
     const filteredSavedRecipes = (savedRecipes || []).filter((recipe) => {
@@ -319,29 +315,38 @@ function RecipePage() {
                 gap="xs"
             >
                 <Tabs value={activeTab} onChange={setActiveTab} color="#8a9a7b">
-                    <Tabs.List justify="space-between">
-                        <Tabs.Tab value="generated recipes" leftSection={<Blocks size={16} />} style={{ fontSize: '16px' }}>
-                            Generate Recipe
+                    <Tabs.List grow>
+                        <Tabs.Tab value="generated recipes" style={{ fontSize: '16px' }}>
+                            <Group justify='center'>
+                                <Blocks size={16} />
+                                <Text style={{ fontSize: '16px', color: '#2d3319' }}>Generate Recipe</Text>
+                            </Group>
                         </Tabs.Tab>
-                        <Tabs.Tab value="saved recipes" leftSection={<Save size={16} />} style={{ fontSize: '16px' }}>
-                            Saved Recipe
+                        <Tabs.Tab value="saved recipes" style={{ fontSize: '16px' }}>
+                            <Group justify='center'>
+                                <Save size={16} />
+                                <Text style={{ fontSize: '16px', color: '#2d3319' }}>Saved Recipe</Text>
+                            </Group>
                         </Tabs.Tab>
-                        <Tabs.Tab value="favorite recipes" leftSection={<BookHeart size={16} />} style={{ fontSize: '16px' }}>
-                            Favorite Recipe
+                        <Tabs.Tab value="favorite recipes" style={{ fontSize: '16px' }}>
+                            <Group justify='center'>
+                                <BookHeart size={16} />
+                                <Text style={{ fontSize: '16px', color: '#2d3319' }}>Favorite Recipe</Text>
+                            </Group>
                         </Tabs.Tab>
                     </Tabs.List>
 
                     <Tabs.Panel value="generated recipes" pt="lg">
-                        <Group align="flex-start" gap="lg" wrap="nowrap">
+                        <Flex direction={{ base: 'column', sm: 'row' }} align="flex-start" gap="lg">
                             <Paper
                                 shadow="md"
                                 p="lg"
                                 radius={"lg"}
-                                w={350}
-                                miw={350}
                                 style={{
                                     backgroundColor: 'white',
                                     border: '2px solid #8a9a7b',
+                                    flex: '0 0 350px',
+                                    alignSelf: 'flex-start',
                                 }}
                             >
                                 <Flex h="100%" justify="flex-start" direction="column">
@@ -411,9 +416,10 @@ function RecipePage() {
                                     border: '2px solid #8a9a7b',
                                     borderRadius: '10px',
                                     textAlign: 'center',
-                                    width: '100%',
+                                    flex: 1,
+                                    minWidth: 0,
                                     minHeight: '400px',
-                                    height: recipes.length > 0 ? 'auto' : 'calc(100vh - 250px)',
+                                    height: recipes.length > 0 ? 'auto' : 'clamp(320px, 55vh, 700px)',
                                     display: 'flex',
                                     alignItems: recipes.length > 0 ? 'center' : 'center',
                                     justifyContent: recipes.length > 0 ? 'center' : 'center',
@@ -447,14 +453,14 @@ function RecipePage() {
                                     )}
                                 </Box>
                             </Paper>
-                        </Group>
+                        </Flex>
                     </Tabs.Panel>
 
                     <Tabs.Panel value="saved recipes" pt="xl">
-                        <Flex justify={"flex-end"} gap={"md"} mb={"xl"}>
+                        <Flex justify={"flex-end"} gap={"md"} mb={"xl"} wrap="wrap">
                             <TextInput
                                 placeholder="Search saved recipes..."
-                                style={{ flex: 1, maxWidth: "700px" }}
+                                style={{ flex: 1, minWidth: '220px', maxWidth: "700px" }}
                                 radius={"md"}
                                 value={savedSearch}
                                 onChange={(e) => setSavedSearch(e.currentTarget.value)}
@@ -483,7 +489,7 @@ function RecipePage() {
                                 value={savedCategory}
                                 onChange={setSavedCategory}
                             />
-                            <Button leftSection={<Plus size={18} />} w={"160px"} radius={"md"} styles={{
+                            <Button leftSection={<Plus size={18} />} w={{ base: '100%', sm: '160px' }} radius={"md"} styles={{
                                 root: {
                                     backgroundColor: '#8a9a7b'
                                 }
@@ -540,10 +546,11 @@ function RecipePage() {
                     </Tabs.Panel>
 
                     <Tabs.Panel value="favorite recipes" pt="xl">
-                        <Flex justify={"flex-end"} gap={"md"}>
+                        <Flex justify={"flex-end"} gap={"md"} wrap="wrap">
                             <TextInput
                                 placeholder="Search favorite recipes..."
-                                w={700} mb="xl"
+                                style={{ flex: 1, minWidth: '220px', maxWidth: '700px' }}
+                                mb="xl"
                                 radius={"md"}
                                 value={favSearch}
                                 onChange={(e) => setFavSearch(e.currentTarget.value)}
@@ -616,25 +623,6 @@ function RecipePage() {
                         </Paper>
                     </Tabs.Panel>
                 </Tabs>
-
-                <RecipeActionModal
-                    opened={isActionModalOpen}
-                    onClose={() => setIsActionModalOpen(false)}
-                    recipeToActOn={recipeToActOn}
-                    currentActionType={currentActionType}
-                    isRecipeSaved={isRecipeSaved}
-                    isRecipeFavorite={isRecipeFavorite}
-                    handleSave={handleSave}
-                    handleFavorite={handleFavorite}
-                    handleDelete={handleDelete}
-                    setActiveTab={setActiveTab}
-                />
-
-                <RecipeDetailModal
-                    opened={isDetailModalOpen}
-                    onClose={() => setIsDetailModalOpen(false)}
-                    selectedRecipe={selectedRecipe}
-                />
 
                 {/* Change to ModalsProvider */}
                 <Modal

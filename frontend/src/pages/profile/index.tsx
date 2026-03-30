@@ -1,5 +1,7 @@
 ﻿import { logoutRequest } from "@/api/user";
+import { openConfirmActionModal } from "@/components/modals/ConfirmActionModal";
 import { useProfile } from "@/hooks/useAuth";
+import { showActionError, showActionSuccess } from "@/lib/actionNotifications";
 import { clearToken } from "@/lib/api";
 import {
     Avatar,
@@ -49,11 +51,9 @@ interface EditData {
 function ProfilePage() {
     const [file, setFile] = useState<File | null>(null);
     const imageURL = file ? URL.createObjectURL(file) : null;
-    const { data: profileData, isLoading, isError, updateProfile, isUpdating, uploadAvatar, isUploadingAvatar, deleteAccount, isDeletingAccount, changePassword, isChangingPassword } = useProfile();
-
+    const { data: profileData, isLoading, isError, updateProfile, isUpdating, uploadAvatar, isUploadingAvatar, deleteAccount, isDeletingAccount, isLoggingOut, changePassword, isChangingPassword } = useProfile();
     const [isEditing, setIsEditing] = useState(false);
     const [saveError, setSaveError] = useState<string | null>(null);
-    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [showChangePassword, setShowChangePassword] = useState(false);
     const [pwData, setPwData] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
     const [pwError, setPwError] = useState<string | null>(null);
@@ -86,11 +86,19 @@ function ProfilePage() {
             onSuccess: () => {
                 setIsEditing(false);
                 setSaveError(null);
+                showActionSuccess({
+                    title: "Profile updated",
+                    message: "Your profile was successfully updated.",
+                });
             },
             onError: (err: any) => {
                 const msg = err?.response?.data?.message ?? err?.message ?? 'Failed to save. Please try again.';
                 setSaveError(msg);
                 console.error('Profile update error:', err?.response ?? err);
+                showActionError({
+                    title: "Update failed",
+                    message: msg,
+                });
             },
         });
     };
@@ -123,10 +131,18 @@ function ProfilePage() {
     const handleLogout = () => {
         if (profileData?.email) {
             logoutRequest(profileData.email).finally(() => {
+                showActionSuccess({
+                    title: "Logged out",
+                    message: "You have been successfully logged out.",
+                });
                 clearToken();
                 navigate({ to: '/home' });
             });
         } else {
+            showActionSuccess({
+                title: "Logged out",
+                message: "You have been successfully logged out.",
+            });
             clearToken();
             navigate({ to: '/home' });
         }
@@ -151,9 +167,18 @@ function ProfilePage() {
             onSuccess: () => {
                 setPwSuccess('Password updated successfully.');
                 setPwData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+                showActionSuccess({
+                    title: "Password updated",
+                    message: "Your password was successfully updated.",
+                });
             },
             onError: (err: any) => {
-                setPwError(err?.response?.data?.message ?? 'Failed to update password.');
+                const message = err?.response?.data?.message ?? 'Failed to update password.';
+                setPwError(message);
+                showActionError({
+                    title: "Password update failed",
+                    message,
+                });
             },
         });
     };
@@ -161,8 +186,19 @@ function ProfilePage() {
     const handleDeleteAccount = () => {
         deleteAccount(undefined, {
             onSuccess: () => {
+                showActionSuccess({
+                    title: "Account deleted",
+                    message: "Your account was successfully deleted.",
+                });
                 clearToken();
                 navigate({ to: '/home' });
+            },
+            onError: (err: any) => {
+                const message = err?.response?.data?.message ?? 'Failed to delete account.';
+                showActionError({
+                    title: "Delete failed",
+                    message,
+                });
             },
         });
     };
@@ -200,12 +236,13 @@ function ProfilePage() {
                     />
                     {pwError && <Text size="sm" c="red">{pwError}</Text>}
                     {pwSuccess && <Text size="sm" c="green">{pwSuccess}</Text>}
-                    <Group gap="sm">
+                    <Flex gap="sm" justify="space-between">
                         <Button
                             onClick={handleChangePassword}
                             loading={isChangingPassword}
                             color="#8a9a7b"
                             style={{ color: 'white' }}
+                            fullWidth
                         >
                             Update Password
                         </Button>
@@ -214,10 +251,11 @@ function ProfilePage() {
                             onClick={() => setShowChangePassword(false)}
                             disabled={isChangingPassword}
                             styles={{ root: { borderColor: '#8a9a7b', color: '#8a9a7b' } }}
+                            fullWidth
                         >
                             Cancel
                         </Button>
-                    </Group>
+                    </Flex>
                 </Stack>
             </Modal>
             <Stack
@@ -257,7 +295,7 @@ function ProfilePage() {
                                 <Text c="red" size="sm">Failed to load profile. Please try again.</Text>
                             </Center>
                         ) : (
-                            <Group align="flex-start" wrap="nowrap" gap="lg">
+                            <Group align="flex-start" wrap="wrap" gap="lg">
                                 <Flex direction="column" align="center" gap="md">
                                     <Avatar
                                         size={120}
@@ -304,7 +342,7 @@ function ProfilePage() {
                                         </>
                                     ) : (
                                         <Stack gap="md">
-                                            <SimpleGrid cols={2} spacing="md">
+                                            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
                                                 <TextInput
                                                     label="First Name"
                                                     value={editData.firstname}
@@ -360,7 +398,23 @@ function ProfilePage() {
                                                 </Button>
                                                 <FileButton onChange={(selectedFile) => {
                                                     setFile(selectedFile);
-                                                    if (selectedFile) uploadAvatar(selectedFile, { onSuccess: () => setFile(null) });
+                                                    if (selectedFile) {
+                                                        uploadAvatar(selectedFile, {
+                                                            onSuccess: () => {
+                                                                setFile(null);
+                                                                showActionSuccess({
+                                                                    title: "Avatar updated",
+                                                                    message: "Your profile image was successfully updated.",
+                                                                });
+                                                            },
+                                                            onError: () => {
+                                                                showActionError({
+                                                                    title: "Upload failed",
+                                                                    message: "Unable to update profile image. Please try again.",
+                                                                });
+                                                            },
+                                                        });
+                                                    }
                                                 }} accept="image/png,image/jpeg,image/webp">
                                                     {(props) => <Button {...props} color="#8a9a7b" loading={isUploadingAvatar}>Change Image</Button>}
                                                 </FileButton>
@@ -389,7 +443,7 @@ function ProfilePage() {
                         <Title order={4} mb="md" style={{ color: '#2d3319' }}>
                             Your Statistics
                         </Title>
-                        <SimpleGrid cols={4} spacing="lg">
+                        <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="lg">
                             {stats.map((stat, index) => (
                                 <Card
                                     key={index}
@@ -454,7 +508,7 @@ function ProfilePage() {
                         <Title order={4} mb="md" style={{ color: '#2d3319' }}>
                             Quick Actions
                         </Title>
-                        <Group gap="md" grow>
+                        <Group gap="md" grow wrap="wrap">
                             <Button
                                 variant="transparent"
                                 style={{ color: '#8a9a7b', borderColor: '#8a9a7b' }}
@@ -465,36 +519,38 @@ function ProfilePage() {
                             </Button>
                             <Button
                                 variant="transparent"
-                                onClick={handleLogout}
+                                onClick={() => {
+                                    openConfirmActionModal({
+                                        title: "Confirm Logout",
+                                        message: "Are you sure you want to logout your account?",
+                                        confirmLabel: "Yes, Logout",
+                                        confirmColor: "#e54854",
+                                        onConfirm: handleLogout,
+                                        isLoading: isLoggingOut,
+                                    });
+                                }}
                                 leftSection={<LogOut size={16} />}
                                 style={{ color: '#8a9a7b', borderColor: '#8a9a7b' }}
                             >
                                 Logout
                             </Button>
-                            {!showDeleteConfirm ? (
-                                <Button
-                                    variant="light"
-                                    color="red"
-                                    leftSection={<X size={16} />}
-                                    onClick={() => setShowDeleteConfirm(true)}
-                                >
-                                    Delete Account
-                                </Button>
-                            ) : (
-                                <Modal opened={showDeleteConfirm} onClose={() => setShowDeleteConfirm(false)} centered radius="md" title={<Title size="lg">Confirm Account Deletion</Title>}>
-                                    <Text size="sm" c="red">
-                                        This action cannot be undone. Are you sure you want to delete your account?
-                                    </Text>
-                                    <Group mt="md" gap="xs">
-                                        <Button color="red" onClick={handleDeleteAccount} loading={isDeletingAccount}>
-                                            Yes, Delete My Account
-                                        </Button>
-                                        <Button variant="outline" disabled={isDeletingAccount} onClick={() => setShowDeleteConfirm(false)}>
-                                            Cancel
-                                        </Button>
-                                    </Group>
-                                </Modal>
-                            )}
+                            <Button
+                                variant="light"
+                                color="red"
+                                leftSection={<X size={16} />}
+                                onClick={() => {
+                                    openConfirmActionModal({
+                                        title: "Confirm Account Deletion",
+                                        message: "This action cannot be undone. Are you sure you want to delete your account?",
+                                        confirmLabel: "Yes, Delete My Account",
+                                        confirmColor: "#e54854",
+                                        onConfirm: handleDeleteAccount,
+                                        isLoading: isDeletingAccount,
+                                    });
+                                }}
+                            >
+                                Delete Account
+                            </Button>
                         </Group>
                     </Paper>
                 </Stack>

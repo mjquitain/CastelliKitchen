@@ -1,5 +1,7 @@
+import { openConfirmActionModal } from "@/components/modals/ConfirmActionModal";
 import { useAddIngredient, useIngredients } from "@/hooks/useIngredients";
 import { useDeleteIngredientBatch, useUpdateIngredientBatch, } from "@/hooks/useIngredientsBatches";
+import { showActionError, showActionSuccess } from "@/lib/actionNotifications";
 import {
     ActionIcon,
     Badge,
@@ -35,6 +37,45 @@ interface Ingredient {
     batches: IngredientBatch[];
 }
 
+interface IngredientRowItem {
+    ingredientId: string;
+    batchId: string;
+    name: string;
+    category: string;
+    quantity: string;
+    dateAdded: string;
+    expiryDate: string;
+}
+
+const BASE_UNIT_OPTIONS = [
+    { value: 'kg', label: 'Kilogram (kg)' },
+    { value: 'g', label: 'Gram (g)' },
+    { value: 'l', label: 'Liter (l)' },
+    { value: 'ml', label: 'Milliliter (ml)' },
+    { value: 'pcs', label: 'Pieces (pcs)' },
+    { value: 'tbsp', label: 'Tablespoon (tbsp)' },
+    { value: 'tsp', label: 'Teaspoon (tsp)' },
+    { value: 'cup', label: 'Cup (cup)' },
+    { value: 'oz', label: 'Ounce (oz)' },
+    { value: 'lb', label: 'Pound (lb)' },
+    { value: 'pack', label: 'Pack (pack)' },
+    { value: 'can', label: 'Can (can)' },
+];
+
+const parseQuantity = (quantity: string) => {
+    const trimmed = quantity.trim();
+    const match = trimmed.match(/^(\d+(?:\.\d+)?)\s*([a-zA-Z]+)?$/);
+
+    if (!match) {
+        return { value: '', unit: 'pcs' };
+    }
+
+    return {
+        value: match[1],
+        unit: (match[2] || 'pcs').toLowerCase(),
+    };
+};
+
 export const calculateDaysInStorage = (dateAdded: string): number => {
     const added = new Date(dateAdded);
     const today = new Date();
@@ -64,7 +105,8 @@ function IngredientsPage() {
     const [search, setSearch] = useState("");
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
     const [name, setName] = useState("");
-    const [quantity, setQuantity] = useState("");
+    const [quantityValue, setQuantityValue] = useState("");
+    const [quantityUnit, setQuantityUnit] = useState<string | null>('pcs');
     const [category, setCategory] = useState<string | null>(null);
     const [dateAdded, setDateAdded] = useState<Date | null>(null);
     const [expiryDate, setExpiryDate] = useState<Date | null>(null);
@@ -77,11 +119,24 @@ function IngredientsPage() {
     const updateBatchMutation = useUpdateIngredientBatch();
     const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
+    const unitOptions = useMemo(() => {
+        if (!quantityUnit || BASE_UNIT_OPTIONS.some((unit) => unit.value === quantityUnit)) {
+            return BASE_UNIT_OPTIONS;
+        }
+
+        return [
+            ...BASE_UNIT_OPTIONS,
+            { value: quantityUnit, label: `${quantityUnit} (custom)` },
+        ];
+    }, [quantityUnit]);
+
     const handleOpenEditModal = (item: any) => {
         setIngredientToEdit(item);
         setBatchToEdit({ ingredientId: item.ingredientId, batchId: item.batchId });
         setName(item.name);
-        setQuantity(item.quantity);
+        const parsedQuantity = parseQuantity(item.quantity || '');
+        setQuantityValue(parsedQuantity.value);
+        setQuantityUnit(parsedQuantity.unit);
         setCategory(item.category);
         setDateAdded(new Date(item.dateAdded));
         setExpiryDate(new Date(item.expiryDate));
@@ -91,7 +146,12 @@ function IngredientsPage() {
     const handleFormSubmit = () => {
         const errors: Record<string, string> = {};
         if (!name.trim()) errors.name = 'Ingredient name is required';
-        if (!quantity.trim()) errors.quantity = 'Quantity is required';
+        if (!quantityValue.trim()) {
+            errors.quantity = 'Quantity value is required';
+        } else if (Number.isNaN(Number(quantityValue)) || Number(quantityValue) <= 0) {
+            errors.quantity = 'Quantity must be a positive number';
+        }
+        if (!quantityUnit) errors.quantityUnit = 'Measurement type is required';
         if (!category) errors.category = 'Category is required';
         if (!dateAdded) errors.dateAdded = 'Date added is required';
         if (!expiryDate) errors.expiryDate = 'Expiry date is required';
@@ -102,28 +162,61 @@ function IngredientsPage() {
         }
         setFormErrors({});
 
+        const selectedCategory = category as string;
+        const serializedDateAdded = (dateAdded as Date).toISOString();
+        const serializedExpiryDate = (expiryDate as Date).toISOString();
+        const formattedQuantity = `${quantityValue.trim()} ${quantityUnit}`.trim();
+
         if (batchToEdit) {
             updateBatchMutation.mutate({
                 ingredientId: batchToEdit.ingredientId,
                 batchId: batchToEdit.batchId,
                 payload: {
-                    quantity,
-                    dateAdded: dateAdded instanceof Date ? dateAdded.toISOString() : dateAdded,
-                    expiryDate: expiryDate instanceof Date ? expiryDate.toISOString() : expiryDate,
+                    quantity: formattedQuantity,
+                    dateAdded: serializedDateAdded,
+                    expiryDate: serializedExpiryDate,
+                },
+            }, {
+                onSuccess: () => {
+                    showActionSuccess({
+                        title: "Updated",
+                        message: `${name} was successfully updated.`,
+                    });
+                },
+                onError: () => {
+                    showActionError({
+                        title: "Update failed",
+                        message: `Unable to update ${name}. Please try again.`,
+                    });
                 },
             });
         } else {
             addIngredientMutation.mutate({
                 name,
-                quantity,
-                category,
-                dateAdded: dateAdded instanceof Date ? dateAdded.toISOString() : dateAdded,
-                expiryDate: expiryDate instanceof Date ? expiryDate.toISOString() : expiryDate,
+                quantity: formattedQuantity,
+                category: selectedCategory,
+                dateAdded: serializedDateAdded,
+                expiryDate: serializedExpiryDate,
+            }, {
+                onSuccess: () => {
+                    showActionSuccess({
+                        title: "Added",
+                        message: `${name} was successfully added.`,
+                    });
+                },
+                onError: (err: any) => {
+                    const message = err?.response?.data?.message || `Unable to add ${name}. Please try again.`;
+                    showActionError({
+                        title: "Add failed",
+                        message,
+                    });
+                },
             });
         }
 
         setName("");
-        setQuantity("");
+        setQuantityValue("");
+        setQuantityUnit('pcs');
         setCategory(null);
         setDateAdded(null);
         setExpiryDate(null);
@@ -167,15 +260,58 @@ function IngredientsPage() {
         });
     }, [search, selectedCategory, tableRows]);
 
-    const handleDeleteIngredient = (ingredientId: string, batchId: string) => {
-        deleteBatchMutation.mutate({ ingredientId, batchId });
+    const handleDeleteIngredient = (ingredientId: string, batchId: string, ingredientName: string) => {
+        openConfirmActionModal({
+            title: "Delete ingredient batch?",
+            message: `Are you sure you want to delete this batch of ${ingredientName}?`,
+            confirmLabel: "Yes, Delete It",
+            confirmColor: "#e54854",
+            confirmIcon: <Trash2 size={18} />,
+            onConfirm: () => {
+                deleteBatchMutation.mutate({ ingredientId, batchId }, {
+                    onSuccess: () => {
+                        showActionSuccess({
+                            title: "Deleted",
+                            message: `${ingredientName} was successfully deleted.`,
+                        });
+                    },
+                    onError: () => {
+                        showActionError({
+                            title: "Delete failed",
+                            message: `Unable to delete ${ingredientName}. Please try again.`,
+                        });
+                    },
+                });
+            },
+        });
     };
 
-    const markAsUsed = (ingredientId: string, batchId: string) => {
-        updateBatchMutation.mutate({
-            ingredientId,
-            batchId,
-            payload: { isUsed: true },
+    const markAsUsed = (ingredientId: string, batchId: string, ingredientName: string) => {
+        openConfirmActionModal({
+            title: "Mark ingredient as used?",
+            message: `Mark ${ingredientName} as used?`,
+            confirmLabel: "Yes, Mark as Used",
+            confirmColor: "#8a9a7b",
+            onConfirm: () => {
+                updateBatchMutation.mutate({
+                    ingredientId,
+                    batchId,
+                    payload: { isUsed: true },
+                }, {
+                    onSuccess: () => {
+                        showActionSuccess({
+                            title: "Marked as used",
+                            message: `${ingredientName} is successfully marked as used.`,
+                        });
+                    },
+                    onError: () => {
+                        showActionError({
+                            title: "Update failed",
+                            message: `Unable to mark ${ingredientName} as used.`,
+                        });
+                    },
+                });
+            },
         });
     };
 
@@ -192,7 +328,7 @@ function IngredientsPage() {
                 p="xl"
                 gap="xs"
             >
-                <Flex direction={"row"} justify={"space-between"} align={"center"} mb="lg">
+                <Flex direction={{ base: 'column', lg: 'row' }} justify={"space-between"} align={{ base: 'stretch', lg: 'center' }} gap="md" mb="lg">
                     <Flex justify={"flex-start"} direction={"column"}>
                         <Title order={2} style={{ color: '#2d3319' }}>
                             My Ingredients
@@ -201,11 +337,11 @@ function IngredientsPage() {
                             Manage your pantry and track expiration dates
                         </Text>
                     </Flex>
-                    <Flex justify={"flex-end"} gap={"md"} style={{ flex: 1 }}>
+                    <Flex justify={"flex-end"} gap={"md"} wrap="wrap" style={{ flex: 1 }}>
                         <TextInput
                             placeholder="Search ingredients..."
                             radius={"md"}
-                            style={{ flex: 1, minWidth: '200px', maxWidth: "800px" }}
+                            style={{ flex: 1, minWidth: '220px' }}
                             value={search}
                             onChange={(e) => setSearch(e.currentTarget.value)}
                         />
@@ -227,7 +363,7 @@ function IngredientsPage() {
                         />
                         <Button
                             leftSection={<Plus size={18} />}
-                            w={"160px"}
+                            w={{ base: '100%', sm: '160px' }}
                             color="#6b7c5e"
                             onClick={() => setIngredientFormOpened(true)}
                         >
@@ -275,7 +411,7 @@ function IngredientsPage() {
                             </Table.Thead>
 
                             <Table.Tbody>
-                                {filteredIngredients.map((item: Ingredient, index: number) => {
+                                {filteredIngredients.map((item: IngredientRowItem, index: number) => {
                                     const expiryStatus = getExpiryStatus(item.expiryDate);
 
                                     if (isLoading) {
@@ -340,7 +476,7 @@ function IngredientsPage() {
                                                     <Button
                                                         color="#6b7c5e"
                                                         size="xs"
-                                                        onClick={() => markAsUsed(item.ingredientId, item.batchId)}
+                                                        onClick={() => markAsUsed(item.ingredientId, item.batchId, item.name)}
                                                     >
                                                         Mark As Used
                                                     </Button>
@@ -356,7 +492,7 @@ function IngredientsPage() {
                                                         variant="light"
                                                         color="red"
                                                         size="sm"
-                                                        onClick={() => handleDeleteIngredient(item.ingredientId, item.batchId)}
+                                                        onClick={() => handleDeleteIngredient(item.ingredientId, item.batchId, item.name)}
                                                     >
                                                         <Trash2 size={16} />
                                                     </ActionIcon>
@@ -397,7 +533,8 @@ function IngredientsPage() {
                         setIngredientToEdit(null);
                         setBatchToEdit(null);
                         setName("");
-                        setQuantity("");
+                        setQuantityValue("");
+                        setQuantityUnit('pcs');
                         setCategory(null);
                         setDateAdded(null);
                         setExpiryDate(null);
@@ -422,14 +559,34 @@ function IngredientsPage() {
                             withAsterisk
                             error={formErrors.name}
                         />
-                        <TextInput
-                            label="Quantity"
-                            placeholder="e.g., 2 liters"
-                            value={quantity}
-                            onChange={(e) => { setQuantity(e.currentTarget.value); if (formErrors.quantity) setFormErrors(prev => ({ ...prev, quantity: '' })); }}
-                            withAsterisk
-                            error={formErrors.quantity}
-                        />
+                        <Group grow align="flex-start" wrap="wrap">
+                            <TextInput
+                                label="Quantity"
+                                placeholder="e.g., 1"
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={quantityValue}
+                                onChange={(e) => {
+                                    setQuantityValue(e.currentTarget.value);
+                                    if (formErrors.quantity) setFormErrors(prev => ({ ...prev, quantity: '' }));
+                                }}
+                                withAsterisk
+                                error={formErrors.quantity}
+                            />
+                            <Select
+                                label="Measurement"
+                                placeholder="Select unit"
+                                data={unitOptions}
+                                value={quantityUnit}
+                                onChange={(val) => {
+                                    setQuantityUnit(val);
+                                    if (formErrors.quantityUnit) setFormErrors(prev => ({ ...prev, quantityUnit: '' }));
+                                }}
+                                withAsterisk
+                                error={formErrors.quantityUnit}
+                            />
+                        </Group>
                         <Select
                             label="Category"
                             placeholder="Select category"
@@ -451,7 +608,10 @@ function IngredientsPage() {
                             label="Date Added"
                             placeholder="Select date added"
                             value={dateAdded}
-                            onChange={(val) => { setDateAdded(val); if (formErrors.dateAdded) setFormErrors(prev => ({ ...prev, dateAdded: '' })); }}
+                            onChange={(val) => {
+                                setDateAdded(val ? new Date(val) : null);
+                                if (formErrors.dateAdded) setFormErrors(prev => ({ ...prev, dateAdded: '' }));
+                            }}
                             withAsterisk
                             error={formErrors.dateAdded}
                         />
@@ -459,7 +619,10 @@ function IngredientsPage() {
                             label="Expiry Date"
                             placeholder="Select expiry date"
                             value={expiryDate}
-                            onChange={(val) => { setExpiryDate(val); if (formErrors.expiryDate) setFormErrors(prev => ({ ...prev, expiryDate: '' })); }}
+                            onChange={(val) => {
+                                setExpiryDate(val ? new Date(val) : null);
+                                if (formErrors.expiryDate) setFormErrors(prev => ({ ...prev, expiryDate: '' }));
+                            }}
                             withAsterisk
                             error={formErrors.expiryDate}
                         />

@@ -7,34 +7,64 @@ import { bucket } from "../config/firebase.js";
  * @param {string} folder - Folder path in storage (e.g., 'recipes', 'profiles')
  * @returns {Promise<string>} - Public URL of the uploaded file
  */
+
+// export const uploadFileToStorage = async (file, folder = 'recipes') => {
+//     try {
+//         const fileName = `${folder}/${uuidv4()}-${file.originalname}`;
+//         const fileUpload = bucket.file(fileName);
+
+//         const stream = fileUpload.createWriteStream({
+//             metadata: {
+//                 contentType: file.mimetype,
+//             },
+//         });
+
+//         return new Promise((resolve, reject) => {
+//             stream.on('error', (error) => {
+//                 reject(error);
+//             });
+
+//             stream.on('finish', async () => {
+//                 await fileUpload.makePublic();
+
+//                 const publicUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+//                 resolve(publicUrl);
+//             });
+
+//             stream.end(file.buffer);
+//         });
+//     } catch (error) {
+//         throw new Error(`File upload failed: ${error.message}`);
+//     }
+// };
+
+
 export const uploadFileToStorage = async (file, folder = 'recipes') => {
-    try {
-        const fileName = `${folder}/${uuidv4()}-${file.originalname}`;
-        const fileUpload = bucket.file(fileName);
+    const fileName = `${folder}/${uuidv4()}-${file.originalname}`;
+    const fileUpload = bucket.file(fileName);
 
-        const stream = fileUpload.createWriteStream({
-            metadata: {
-                contentType: file.mimetype,
-            },
-        });
+    const stream = fileUpload.createWriteStream({
+        metadata: {
+            contentType: file.mimetype,
+        },
+    });
 
-        return new Promise((resolve, reject) => {
-            stream.on('error', (error) => {
-                reject(error);
-            });
+    return new Promise((resolve, reject) => {
+        stream.on('error', reject);
 
-            stream.on('finish', async () => {
+        stream.on('finish', async () => {
+            try {
                 await fileUpload.makePublic();
 
                 const publicUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
                 resolve(publicUrl);
-            });
-
-            stream.end(file.buffer);
+            } catch (error) {
+                reject(error);
+            }
         });
-    } catch (error) {
-        throw new Error(`File upload failed: ${error.message}`);
-    }
+
+        stream.end(file.buffer);
+    });
 };
 
 /**

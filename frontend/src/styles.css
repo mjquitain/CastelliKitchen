@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+html,
+body,
+#app {
+  width: 100%;
+  min-height: 100%;
+}
+
 body {
   @apply m-0;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
@@ -7,9 +14,83 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
 }
 
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New",
     monospace;
+}
+
+.ck-header {
+  border-color: #8a9a7b;
+  position: sticky;
+  top: 0;
+  background-color: #8a9a7b;
+  z-index: 15;
+  padding: 0.6rem 0.8rem;
+}
+
+.ck-header-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  width: 100%;
+}
+
+.ck-header-brand {
+  margin-left: 0.25rem;
+  min-width: 0;
+}
+
+.ck-header-title {
+  color: white;
+  margin-bottom: 0;
+  font-size: clamp(1.1rem, 2.2vw, 1.45rem);
+  line-height: 1.2;
+}
+
+.ck-header-subtitle {
+  color: white;
+  line-height: 1.2;
+}
+
+.ck-header-nav {
+  margin-right: 0.25rem;
+  flex: 1 1 420px;
+  min-width: min(100%, 280px);
+}
+
+.ck-header-link {
+  color: white;
+  white-space: nowrap;
+}
+
+.ck-header-link:hover {
+  color: black;
+}
+
+@media (max-width: 900px) {
+  .ck-header-inner {
+    align-items: flex-start;
+  }
+
+  .ck-header-nav {
+    justify-content: flex-start;
+    gap: 0.6rem 0.9rem;
+    width: 100%;
+    margin-right: 0;
+  }
+}
+
+@media (max-width: 560px) {
+  .ck-header {
+    padding: 0.55rem 0.65rem;
+  }
+
+  .ck-header-subtitle {
+    display: none;
+  }
 }
