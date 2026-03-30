@@ -37,6 +37,7 @@ const addIngredient = async (req, res) => {
         }
 
         const normalizedName = String(name || '').trim().toLowerCase();
+        const normalizedQuantity = String(quantity || '').trim().toLowerCase();
 
         let ingredient = await Ingredient.findOne({
             userId: req.user.id,
@@ -54,19 +55,21 @@ const addIngredient = async (req, res) => {
         const existingIngredientBatch = await IngredientBatch.findOne({
             userId: req.user.id,
             ingredientId: ingredient._id,
+            quantity: normalizedQuantity,
+            dateAdded,
             expiryDate,
             isUsed: false,
             isDeleted: false
         });
 
         if (existingIngredientBatch) {
-            return res.status(409).json({ message: "Ingredient already saved. If there are any changes, update the record instead." });
+            return res.status(409).json({ message: "This ingredient with the same quantity, date added, and expiration date already exists." });
         }
 
         const ingredientBatch = await IngredientBatch.create({
             userId: req.user.id,
             ingredientId: ingredient._id,
-            quantity,
+            quantity: normalizedQuantity,
             dateAdded,
             expiryDate
         });
