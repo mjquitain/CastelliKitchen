@@ -167,8 +167,8 @@ function NotificationPage() {
                     opacity: notification.isRead ? 0.7 : 1
                 }}
             >
-                <Group justify="space-between" wrap="nowrap">
-                    <Group gap="md" style={{ flex: 1 }}>
+                <Group justify="space-between" wrap="wrap" align="flex-start">
+                    <Group gap="md" style={{ flex: 1, minWidth: 0 }}>
                         <Box
                             style={{
                                 padding: '10px',
@@ -178,7 +178,7 @@ function NotificationPage() {
                         >
                             <Icon size={24} color={color} />
                         </Box>
-                        <div style={{ flex: 1 }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
                             <Text fw={notification.isRead ? 400 : 600} size="md" style={{ color: '#2d3319' }}>
                                 {notification.message}
                             </Text>
@@ -235,7 +235,7 @@ function NotificationPage() {
                 p="xl"
                 gap="xs"
             >
-                <Group justify="space-between" mb="md">
+                <Group justify="space-between" mb="md" align="flex-start" wrap="wrap">
                     <div>
                         <Group gap="sm" mb={4}>
                             <Bell size={28} color="#8a9a7b" />
@@ -252,7 +252,7 @@ function NotificationPage() {
                             Track your ingredients, recipes, and prevent food waste
                         </Text>
                     </div>
-                    <Group gap="sm">
+                    <Group gap="sm" wrap="wrap">
                         {unreadCount > 0 && (
                             <Button
                                 variant="light"

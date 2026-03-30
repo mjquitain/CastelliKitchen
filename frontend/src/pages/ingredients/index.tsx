@@ -47,6 +47,35 @@ interface IngredientRowItem {
     expiryDate: string;
 }
 
+const BASE_UNIT_OPTIONS = [
+    { value: 'kg', label: 'Kilogram (kg)' },
+    { value: 'g', label: 'Gram (g)' },
+    { value: 'l', label: 'Liter (l)' },
+    { value: 'ml', label: 'Milliliter (ml)' },
+    { value: 'pcs', label: 'Pieces (pcs)' },
+    { value: 'tbsp', label: 'Tablespoon (tbsp)' },
+    { value: 'tsp', label: 'Teaspoon (tsp)' },
+    { value: 'cup', label: 'Cup (cup)' },
+    { value: 'oz', label: 'Ounce (oz)' },
+    { value: 'lb', label: 'Pound (lb)' },
+    { value: 'pack', label: 'Pack (pack)' },
+    { value: 'can', label: 'Can (can)' },
+];
+
+const parseQuantity = (quantity: string) => {
+    const trimmed = quantity.trim();
+    const match = trimmed.match(/^(\d+(?:\.\d+)?)\s*([a-zA-Z]+)?$/);
+
+    if (!match) {
+        return { value: '', unit: 'pcs' };
+    }
+
+    return {
+        value: match[1],
+        unit: (match[2] || 'pcs').toLowerCase(),
+    };
+};
+
 export const calculateDaysInStorage = (dateAdded: string): number => {
     const added = new Date(dateAdded);
     const today = new Date();
@@ -76,7 +105,8 @@ function IngredientsPage() {
     const [search, setSearch] = useState("");
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
     const [name, setName] = useState("");
-    const [quantity, setQuantity] = useState("");
+    const [quantityValue, setQuantityValue] = useState("");
+    const [quantityUnit, setQuantityUnit] = useState<string | null>('pcs');
     const [category, setCategory] = useState<string | null>(null);
     const [dateAdded, setDateAdded] = useState<Date | null>(null);
     const [expiryDate, setExpiryDate] = useState<Date | null>(null);
@@ -89,11 +119,24 @@ function IngredientsPage() {
     const updateBatchMutation = useUpdateIngredientBatch();
     const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
+    const unitOptions = useMemo(() => {
+        if (!quantityUnit || BASE_UNIT_OPTIONS.some((unit) => unit.value === quantityUnit)) {
+            return BASE_UNIT_OPTIONS;
+        }
+
+        return [
+            ...BASE_UNIT_OPTIONS,
+            { value: quantityUnit, label: `${quantityUnit} (custom)` },
+        ];
+    }, [quantityUnit]);
+
     const handleOpenEditModal = (item: any) => {
         setIngredientToEdit(item);
         setBatchToEdit({ ingredientId: item.ingredientId, batchId: item.batchId });
         setName(item.name);
-        setQuantity(item.quantity);
+        const parsedQuantity = parseQuantity(item.quantity || '');
+        setQuantityValue(parsedQuantity.value);
+        setQuantityUnit(parsedQuantity.unit);
         setCategory(item.category);
         setDateAdded(new Date(item.dateAdded));
         setExpiryDate(new Date(item.expiryDate));
@@ -103,7 +146,12 @@ function IngredientsPage() {
     const handleFormSubmit = () => {
         const errors: Record<string, string> = {};
         if (!name.trim()) errors.name = 'Ingredient name is required';
-        if (!quantity.trim()) errors.quantity = 'Quantity is required';
+        if (!quantityValue.trim()) {
+            errors.quantity = 'Quantity value is required';
+        } else if (Number.isNaN(Number(quantityValue)) || Number(quantityValue) <= 0) {
+            errors.quantity = 'Quantity must be a positive number';
+        }
+        if (!quantityUnit) errors.quantityUnit = 'Measurement type is required';
         if (!category) errors.category = 'Category is required';
         if (!dateAdded) errors.dateAdded = 'Date added is required';
         if (!expiryDate) errors.expiryDate = 'Expiry date is required';
@@ -117,13 +165,14 @@ function IngredientsPage() {
         const selectedCategory = category as string;
         const serializedDateAdded = (dateAdded as Date).toISOString();
         const serializedExpiryDate = (expiryDate as Date).toISOString();
+        const formattedQuantity = `${quantityValue.trim()} ${quantityUnit}`.trim();
 
         if (batchToEdit) {
             updateBatchMutation.mutate({
                 ingredientId: batchToEdit.ingredientId,
                 batchId: batchToEdit.batchId,
                 payload: {
-                    quantity,
+                    quantity: formattedQuantity,
                     dateAdded: serializedDateAdded,
                     expiryDate: serializedExpiryDate,
                 },
@@ -144,7 +193,7 @@ function IngredientsPage() {
         } else {
             addIngredientMutation.mutate({
                 name,
-                quantity,
+                quantity: formattedQuantity,
                 category: selectedCategory,
                 dateAdded: serializedDateAdded,
                 expiryDate: serializedExpiryDate,
@@ -155,17 +204,19 @@ function IngredientsPage() {
                         message: `${name} was successfully added.`,
                     });
                 },
-                onError: () => {
+                onError: (err: any) => {
+                    const message = err?.response?.data?.message || `Unable to add ${name}. Please try again.`;
                     showActionError({
                         title: "Add failed",
-                        message: `Unable to add ${name}. Please try again.`,
+                        message,
                     });
                 },
             });
         }
 
         setName("");
-        setQuantity("");
+        setQuantityValue("");
+        setQuantityUnit('pcs');
         setCategory(null);
         setDateAdded(null);
         setExpiryDate(null);
@@ -277,7 +328,7 @@ function IngredientsPage() {
                 p="xl"
                 gap="xs"
             >
-                <Flex direction={"row"} justify={"space-between"} align={"center"} mb="lg">
+                <Flex direction={{ base: 'column', lg: 'row' }} justify={"space-between"} align={{ base: 'stretch', lg: 'center' }} gap="md" mb="lg">
                     <Flex justify={"flex-start"} direction={"column"}>
                         <Title order={2} style={{ color: '#2d3319' }}>
                             My Ingredients
@@ -286,11 +337,11 @@ function IngredientsPage() {
                             Manage your pantry and track expiration dates
                         </Text>
                     </Flex>
-                    <Flex justify={"flex-end"} gap={"md"} style={{ flex: 1 }}>
+                    <Flex justify={"flex-end"} gap={"md"} wrap="wrap" style={{ flex: 1 }}>
                         <TextInput
                             placeholder="Search ingredients..."
                             radius={"md"}
-                            style={{ flex: 1, minWidth: '200px', maxWidth: "800px" }}
+                            style={{ flex: 1, minWidth: '220px' }}
                             value={search}
                             onChange={(e) => setSearch(e.currentTarget.value)}
                         />
@@ -312,7 +363,7 @@ function IngredientsPage() {
                         />
                         <Button
                             leftSection={<Plus size={18} />}
-                            w={"160px"}
+                            w={{ base: '100%', sm: '160px' }}
                             color="#6b7c5e"
                             onClick={() => setIngredientFormOpened(true)}
                         >
@@ -482,7 +533,8 @@ function IngredientsPage() {
                         setIngredientToEdit(null);
                         setBatchToEdit(null);
                         setName("");
-                        setQuantity("");
+                        setQuantityValue("");
+                        setQuantityUnit('pcs');
                         setCategory(null);
                         setDateAdded(null);
                         setExpiryDate(null);
@@ -507,14 +559,34 @@ function IngredientsPage() {
                             withAsterisk
                             error={formErrors.name}
                         />
-                        <TextInput
-                            label="Quantity"
-                            placeholder="e.g., 2 liters"
-                            value={quantity}
-                            onChange={(e) => { setQuantity(e.currentTarget.value); if (formErrors.quantity) setFormErrors(prev => ({ ...prev, quantity: '' })); }}
-                            withAsterisk
-                            error={formErrors.quantity}
-                        />
+                        <Group grow align="flex-start" wrap="wrap">
+                            <TextInput
+                                label="Quantity"
+                                placeholder="e.g., 1"
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={quantityValue}
+                                onChange={(e) => {
+                                    setQuantityValue(e.currentTarget.value);
+                                    if (formErrors.quantity) setFormErrors(prev => ({ ...prev, quantity: '' }));
+                                }}
+                                withAsterisk
+                                error={formErrors.quantity}
+                            />
+                            <Select
+                                label="Measurement"
+                                placeholder="Select unit"
+                                data={unitOptions}
+                                value={quantityUnit}
+                                onChange={(val) => {
+                                    setQuantityUnit(val);
+                                    if (formErrors.quantityUnit) setFormErrors(prev => ({ ...prev, quantityUnit: '' }));
+                                }}
+                                withAsterisk
+                                error={formErrors.quantityUnit}
+                            />
+                        </Group>
                         <Select
                             label="Category"
                             placeholder="Select category"

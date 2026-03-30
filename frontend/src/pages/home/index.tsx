@@ -256,7 +256,7 @@ function HomePage() {
                 p={"xl"}
                 gap={"xs"}
             >
-                <SimpleGrid cols={3} spacing="lg" mb={"lg"}>
+                <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="lg" mb={"lg"}>
                     {quickStats.map((stat, index) => (
                         <Card
                             key={index}
@@ -310,14 +310,14 @@ function HomePage() {
                             </Text>
                         </div>
 
-                        <Group>
+                        <Group wrap="wrap" align="flex-end">
                             <TextInput
                                 placeholder="e.g., chicken, tomatoes, pasta..."
                                 value={currentIngredient}
                                 onChange={(e: ChangeEvent<HTMLInputElement>) =>
                                     setCurrentIngredient(e.currentTarget.value)
                                 }
-                                style={{ flex: 1 }}
+                                style={{ flex: 1, minWidth: '220px' }}
                                 styles={{
                                     input: {
                                         borderColor: '#8a9a7b',
@@ -447,7 +447,7 @@ function HomePage() {
                                         <Text size="md" fw={500} mb="md" style={{ color: "#2d3319" }}>
                                             Suggested recipes based on expiring ingredients: ({suggestedRecipes.length})
                                         </Text>
-                                        <SimpleGrid cols={5} spacing="md">
+                                        <SimpleGrid cols={{ base: 1, sm: 2, md: 3, xl: 5 }} spacing="md">
                                             {suggestedRecipes.map((recipe) => (
                                                 <RecipeCard
                                                     key={recipe.idMeal}
@@ -501,7 +501,7 @@ function HomePage() {
                                             Recipes found: {recipes.length}
                                         </Text>
 
-                                        <SimpleGrid cols={5} spacing="md">
+                                        <SimpleGrid cols={{ base: 1, sm: 2, md: 3, xl: 5 }} spacing="md">
                                             {recipes.map((recipe) => (
                                                 <RecipeCard
                                                     key={recipe.idMeal}

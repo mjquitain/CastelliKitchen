@@ -295,7 +295,7 @@ function ProfilePage() {
                                 <Text c="red" size="sm">Failed to load profile. Please try again.</Text>
                             </Center>
                         ) : (
-                            <Group align="flex-start" wrap="nowrap" gap="lg">
+                            <Group align="flex-start" wrap="wrap" gap="lg">
                                 <Flex direction="column" align="center" gap="md">
                                     <Avatar
                                         size={120}
@@ -342,7 +342,7 @@ function ProfilePage() {
                                         </>
                                     ) : (
                                         <Stack gap="md">
-                                            <SimpleGrid cols={2} spacing="md">
+                                            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
                                                 <TextInput
                                                     label="First Name"
                                                     value={editData.firstname}
@@ -443,7 +443,7 @@ function ProfilePage() {
                         <Title order={4} mb="md" style={{ color: '#2d3319' }}>
                             Your Statistics
                         </Title>
-                        <SimpleGrid cols={4} spacing="lg">
+                        <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="lg">
                             {stats.map((stat, index) => (
                                 <Card
                                     key={index}
@@ -508,7 +508,7 @@ function ProfilePage() {
                         <Title order={4} mb="md" style={{ color: '#2d3319' }}>
                             Quick Actions
                         </Title>
-                        <Group gap="md" grow>
+                        <Group gap="md" grow wrap="wrap">
                             <Button
                                 variant="transparent"
                                 style={{ color: '#8a9a7b', borderColor: '#8a9a7b' }}
