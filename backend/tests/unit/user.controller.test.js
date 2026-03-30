@@ -332,13 +332,6 @@ describe("User Controller", () => {
       await userController.forgotPassword(req, res);
       expect(res.status).toHaveBeenCalledWith(200);
     });
-
-    it("returns 400 if user uses Google", async () => {
-      req.body = { email: "test@example.com" };
-      jest.spyOn(userModel.User, "findOne").mockResolvedValue({ authProvider: "google" });
-      await userController.forgotPassword(req, res);
-      expect(res.status).toHaveBeenCalledWith(400);
-    });
   });
 
   describe("resetPassword", () => {

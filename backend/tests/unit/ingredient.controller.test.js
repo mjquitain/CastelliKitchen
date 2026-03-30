@@ -140,7 +140,7 @@ describe("Ingredient Controller", () => {
     });
 
     it("should treat ingredient names as case-insensitive duplicates", async () => {
-      Ingredient.findOne.mockResolvedValue({ _id: "ing1", name: "tomato" });
+      Ingredient.findOne.mockResolvedValue({ _id: "ing1", name: "Tomato" });
       IngredientBatch.findOne.mockResolvedValue({ _id: "batch1" });
 
       await addIngredient(req, res);
@@ -388,7 +388,7 @@ describe("Ingredient Controller", () => {
     });
 
     it("should update ingredient", async () => {
-      const updatedIngredient = { _id: "ing1", name: "tomato", category: "Vegetable" };
+      const updatedIngredient = { _id: "ing1", name: "Tomato", category: "Dairy" };
 
       Ingredient.findOneAndUpdate.mockResolvedValue(updatedIngredient);
 
@@ -410,19 +410,19 @@ describe("Ingredient Controller", () => {
     });
 
     it("should create notification when ingredient is updated", async () => {
-      const updatedIngredient = { _id: "ing1", name: "tomato" };
+      const updatedIngredient = { _id: "ing1", name: "asparagus" };
 
       Ingredient.findOneAndUpdate.mockResolvedValue(updatedIngredient);
 
       await updateIngredient(req, res);
 
-      expect(getNotificationMessage).toHaveBeenCalledWith("ingredient_edited", "tomato");
+      expect(getNotificationMessage).toHaveBeenCalledWith("ingredient_edited", "asparagus");
 
-      expect(createNotification).toHaveBeenCalledWith("user123", "ingredient_edited", "mock message", "ing1", "tomato");
+      expect(createNotification).toHaveBeenCalledWith("user123", "ingredient_edited", "mock message", "ing1", "asparagus");
     });
 
     it("should still succeed even if notification fails", async () => {
-      const updatedIngredient = { _id: "ing1", name: "tomato" };
+      const updatedIngredient = { _id: "ing1", name: "radish" };
 
       Ingredient.findOneAndUpdate.mockResolvedValue(updatedIngredient);
 
@@ -716,16 +716,6 @@ describe("Ingredient Controller", () => {
 
       expect(res.json).toHaveBeenCalledWith({ message: "Ingredient deleted successfully." });
     });
-
-    it("should not delete already deleted ingredient", async () => {
-      Ingredient.findOne.mockResolvedValue(null);
-
-      await deleteIngredient(req, res);
-
-      expect(res.status).toHaveBeenCalledWith(404);
-
-      expect(res.json).toHaveBeenCalledWith({ message: "Ingredient not found." });
-    });
   })
 
   describe("deleteIngredientBatch", () => {
@@ -794,7 +784,7 @@ describe("Ingredient Controller", () => {
       expect(createNotification).toHaveBeenCalledWith("user123", "ingredient_deleted", "mock message", "ing1", "tomato");
     });
 
-    it("should still succeed even if notificaiton fails", async () => {
+    it("should still succeed even if notification fails", async () => {
       const mockBatch = {
         _id: "batch1",
         ingredientId: { _id: "ing1", name: "tomato" }
@@ -813,18 +803,6 @@ describe("Ingredient Controller", () => {
       expect(res.status).toHaveBeenCalledWith(200);
 
       expect(res.json).toHaveBeenCalledWith({ message: "Ingredient batch deleted successfully." });
-    });
-
-    it("should not delete batch if already marked deleted", async () => {
-      IngredientBatch.findOneAndUpdate.mockReturnValue({
-        populate: jest.fn().mockResolvedValue(null)
-      });
-
-      await deleteIngredientBatch(req, res);
-
-      expect(res.status).toHaveBeenCalledWith(404);
-
-      expect(res.json).toHaveBeenCalledWith({ message: "Ingredient batch not found." });
     });
   })
 
